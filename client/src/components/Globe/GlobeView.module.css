@@ -1,0 +1,105 @@
+@reference "tailwindcss";
+
+.container {
+  @apply absolute inset-0 w-full h-full;
+}
+
+/* ── Clickable marker wrapper ─────────────── */
+
+:global(.globe-marker) {
+  pointer-events: auto;
+}
+
+:global(.globe-marker:hover .globe-dot-marker) {
+  transform: scale(1.5);
+  background: #ffffff;
+  box-shadow: 0 0 18px rgba(56, 225, 255, 0.95), 0 0 36px rgba(56, 225, 255, 0.5);
+}
+
+/* ── Active destination pin ──────────────── */
+
+:global(.globe-pin) {
+  position: relative;
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  background: #ffffff;
+  box-shadow:
+    0 0 0 1.5px rgba(111, 233, 255, 0.7),
+    0 0 16px rgba(56, 225, 255, 0.9),
+    0 0 40px rgba(56, 225, 255, 0.45);
+}
+
+/* Expanding halo ring around the active pin */
+:global(.globe-pin--active)::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  border: 1.5px solid rgba(111, 233, 255, 0.6);
+  transform: translate(-50%, -50%);
+  animation: pin-halo 2.2s ease-out infinite;
+}
+
+@keyframes pin-halo {
+  0% { width: 13px; height: 13px; opacity: 0.8; }
+  100% { width: 56px; height: 56px; opacity: 0; }
+}
+
+/* ── Visited destination dot ─────────────── */
+
+:global(.globe-dot-marker) {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: rgba(56, 225, 255, 0.9);
+  border: 1px solid rgba(56, 225, 255, 0.25);
+  box-shadow: 0 0 8px rgba(56, 225, 255, 0.6);
+  transition: all 0.3s ease;
+}
+
+:global(.globe-dot-marker--active) {
+  background: #ffffff;
+  border-color: rgba(111, 233, 255, 0.6);
+  box-shadow: 0 0 18px rgba(56, 225, 255, 0.9), 0 0 36px rgba(56, 225, 255, 0.4);
+  width: 14px;
+  height: 14px;
+  animation: pulse-dot 1.6s ease-in-out infinite;
+}
+
+@keyframes pulse-dot {
+  0%, 100% { box-shadow: 0 0 18px rgba(56,225,255,0.9), 0 0 36px rgba(56,225,255,0.4); }
+  50% { box-shadow: 0 0 28px rgba(56,225,255,1), 0 0 56px rgba(56,225,255,0.6); }
+}
+
+/* ── Label (only on active marker) ───────── */
+
+:global(.globe-label) {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #eaf6ff;
+  text-shadow: 0 0 10px rgba(56, 225, 255, 0.5), 0 2px 6px rgba(0, 0, 0, 0.9);
+  padding: 4px 12px;
+  background: rgba(5, 11, 18, 0.7);
+  backdrop-filter: blur(6px);
+  border: 1px solid rgba(56, 225, 255, 0.3);
+  white-space: nowrap;
+  pointer-events: none;
+  margin-top: 10px;
+}
+
+/* Non-active markers reveal their label only on hover. */
+:global(.globe-label--hover) {
+  opacity: 0;
+  transition: opacity 0.18s ease;
+}
+
+:global(.globe-marker:hover .globe-label--hover) {
+  opacity: 1;
+}

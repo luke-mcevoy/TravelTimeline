@@ -1,0 +1,157 @@
+@reference "tailwindcss";
+
+.wrapper {
+  @apply absolute bottom-8 left-1/2 -translate-x-1/2 z-20;
+  width: min(680px, calc(100% - 2rem));
+}
+
+.bar {
+  @apply relative px-5 pt-3 pb-4;
+  background: rgba(6, 11, 18, 0.82);
+  backdrop-filter: blur(20px);
+  border: 1px solid var(--color-line);
+  box-shadow:
+    0 24px 60px -18px rgba(0, 0, 0, 0.7),
+    0 0 50px rgba(56, 225, 255, 0.05),
+    inset 0 1px 0 rgba(255, 255, 255, 0.03);
+  clip-path: polygon(14px 0, 100% 0, 100% calc(100% - 14px), calc(100% - 14px) 100%, 0 100%, 0 14px);
+}
+
+/* cyan top edge accent */
+.bar::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 14px;
+  right: 14px;
+  height: 1px;
+  background: linear-gradient(to right, transparent, rgba(56, 225, 255, 0.5), transparent);
+}
+
+.destLabel {
+  @apply flex items-center justify-center gap-3 mb-3;
+}
+
+.destCity {
+  font-family: var(--font-mono);
+  @apply text-xs font-semibold;
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  color: var(--color-cyan);
+  text-shadow: 0 0 12px rgba(56, 225, 255, 0.4);
+}
+
+.destDate {
+  font-family: var(--font-mono);
+  @apply text-xs;
+  letter-spacing: 0.1em;
+  color: var(--color-text-faint);
+}
+
+.controls {
+  @apply flex items-center gap-3;
+}
+
+.resetButton {
+  @apply p-2 transition-all;
+  color: var(--color-text-faint);
+  border: 1px solid transparent;
+}
+
+.resetButton:hover {
+  color: var(--color-cyan);
+  border-color: var(--color-line);
+  background: rgba(56, 225, 255, 0.06);
+}
+
+.resetIcon {
+  @apply h-4 w-4;
+}
+
+.playButton {
+  @apply p-3 transition-all;
+  color: #04101a;
+  background: linear-gradient(135deg, var(--color-cyan-soft), var(--color-cyan));
+  border-radius: 50%;
+  box-shadow: 0 0 20px rgba(56, 225, 255, 0.5), inset 0 0 0 1px rgba(255, 255, 255, 0.3);
+}
+
+.playButton:hover {
+  transform: scale(1.06);
+  box-shadow: 0 0 30px rgba(56, 225, 255, 0.75), inset 0 0 0 1px rgba(255, 255, 255, 0.4);
+}
+
+.playButton:active {
+  transform: scale(0.97);
+}
+
+.playIcon {
+  @apply h-5 w-5;
+}
+
+.playIconOffset {
+  @apply h-5 w-5 ml-0.5;
+}
+
+.scrubber {
+  @apply flex-1 relative;
+}
+
+.scrubberInput {
+  @apply w-full cursor-pointer appearance-none;
+  height: 3px;
+  background: rgba(120, 190, 230, 0.16);
+}
+
+.scrubberInput::-webkit-slider-thumb {
+  @apply appearance-none cursor-pointer;
+  width: 14px;
+  height: 14px;
+  background: var(--color-cyan);
+  border: 2px solid rgba(6, 11, 18, 0.9);
+  box-shadow: 0 0 12px rgba(56, 225, 255, 0.8);
+  border-radius: 0;
+  transform: rotate(45deg);
+}
+
+.scrubberInput::-moz-range-thumb {
+  @apply cursor-pointer;
+  width: 12px;
+  height: 12px;
+  background: var(--color-cyan);
+  border: 2px solid rgba(6, 11, 18, 0.9);
+  box-shadow: 0 0 12px rgba(56, 225, 255, 0.8);
+  border-radius: 0;
+}
+
+.scrubberCounter {
+  @apply flex justify-between mt-2;
+}
+
+.scrubberText {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  color: var(--color-text-faint);
+  font-variant-numeric: tabular-nums;
+}
+
+.speedButton {
+  @apply flex items-center gap-1.5 px-3 py-1.5 transition-all;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  color: var(--color-text-dim);
+  background: rgba(120, 190, 230, 0.05);
+  border: 1px solid var(--color-line);
+}
+
+.speedButton:hover {
+  color: var(--color-cyan);
+  border-color: var(--color-line-strong);
+  background: rgba(56, 225, 255, 0.08);
+}
+
+.speedIcon {
+  @apply h-3.5 w-3.5;
+}

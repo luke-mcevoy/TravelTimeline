@@ -1,0 +1,196 @@
+@reference "tailwindcss";
+
+/* Right-anchored stage; lets globe drags pass through except over the photo */
+.stage {
+  @apply absolute z-20;
+  top: 0;
+  bottom: 0;
+  right: 0;
+  width: min(46vw, 600px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* Top padding clears the stats bar; bottom padding keeps tall portrait
+     photos from sliding under the timeline console at the bottom. */
+  padding: 72px 3vw 128px;
+  pointer-events: none;
+}
+
+.frame {
+  position: relative;
+  pointer-events: auto;
+  max-width: 100%;
+  border-radius: 16px;
+  overflow: hidden;
+  background: #04070d;
+  box-shadow:
+    0 50px 120px -36px rgba(0, 0, 0, 0.9),
+    0 0 0 1px rgba(120, 180, 220, 0.14),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.03);
+  animation: featured-rise 0.7s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes featured-rise {
+  from {
+    opacity: 0;
+    transform: translateY(20px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.photo {
+  display: block;
+  width: auto;
+  height: auto;
+  max-width: 100%;
+  /* Never exceed the safe area between the stats bar and the timeline. */
+  max-height: min(72vh, calc(100vh - 232px));
+  transform-origin: center;
+  /* gentle fade-in + slow Ken Burns drift for a living, cinematic feel */
+  animation: featured-fade 0.9s ease, featured-kenburns 18s ease-out forwards;
+}
+
+@keyframes featured-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes featured-kenburns {
+  from { transform: scale(1.001); }
+  to { transform: scale(1.07); }
+}
+
+.shade {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(
+    to top,
+    rgba(3, 6, 13, 0.94) 0%,
+    rgba(3, 6, 13, 0.5) 20%,
+    rgba(3, 6, 13, 0) 42%
+  );
+}
+
+.caption {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 30px 28px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.kicker {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: var(--color-cyan);
+  text-shadow: 0 0 12px rgba(56, 225, 255, 0.4);
+}
+
+.place {
+  font-size: 36px;
+  font-weight: 600;
+  letter-spacing: -0.015em;
+  line-height: 1.02;
+  color: #ffffff;
+  text-shadow: 0 2px 24px rgba(0, 0, 0, 0.6);
+}
+
+.meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13.5px;
+  letter-spacing: 0.02em;
+  color: var(--color-text-dim);
+}
+
+.metaDot {
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: var(--color-text-faint);
+}
+
+/* ── Navigation (only when a place has multiple photos) ── */
+
+.navBtn {
+  @apply absolute top-1/2 -translate-y-1/2 flex items-center justify-center text-white transition-all;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: rgba(5, 11, 18, 0.55);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  opacity: 0.7;
+  cursor: pointer;
+}
+
+.navBtn:hover {
+  opacity: 1;
+  background: rgba(56, 225, 255, 0.2);
+}
+
+.navBtnLeft {
+  left: 14px;
+}
+
+.navBtnRight {
+  right: 14px;
+}
+
+/* ── Hide button (top-right corner of the card) ── */
+
+.hideButton {
+  @apply absolute flex items-center justify-center text-white transition-all;
+  top: 14px;
+  right: 14px;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: rgba(5, 11, 18, 0.55);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  opacity: 0.6;
+  cursor: pointer;
+  z-index: 2;
+}
+
+.hideButton:hover {
+  opacity: 1;
+  background: rgba(56, 225, 255, 0.2);
+}
+
+/* ── "Show photo" pill (when the card is hidden) ── */
+
+.showButton {
+  @apply absolute z-20 flex items-center gap-2 text-white transition-all;
+  bottom: 24px;
+  right: 24px;
+  padding: 9px 16px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  border-radius: 999px;
+  background: rgba(5, 11, 18, 0.7);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(56, 225, 255, 0.3);
+  box-shadow: 0 0 18px rgba(56, 225, 255, 0.18);
+  cursor: pointer;
+  pointer-events: auto;
+  animation: featured-fade 0.4s ease;
+}
+
+.showButton:hover {
+  background: rgba(56, 225, 255, 0.2);
+  border-color: rgba(56, 225, 255, 0.55);
+}

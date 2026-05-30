@@ -1,0 +1,42 @@
+@reference "tailwindcss";
+
+.bar {
+  @apply absolute top-5 left-1/2 -translate-x-1/2 z-10 flex items-center gap-5 px-5 py-2;
+  background: rgba(6, 11, 18, 0.7);
+  backdrop-filter: blur(12px);
+  border: 1px solid var(--color-line);
+  box-shadow: 0 0 30px rgba(0, 0, 0, 0.4);
+  clip-path: polygon(10px 0, calc(100% - 10px) 0, 100% 50%, calc(100% - 10px) 100%, 10px 100%, 0 50%);
+}
+
+.statItem {
+  @apply flex items-center gap-2;
+}
+
+.statIcon {
+  @apply h-3.5 w-3.5;
+  color: var(--color-cyan);
+  filter: drop-shadow(0 0 6px rgba(56, 225, 255, 0.5));
+}
+
+.statValue {
+  font-family: var(--font-mono);
+  @apply text-xs font-semibold leading-tight;
+  color: var(--color-text);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.03em;
+}
+
+.statLabel {
+  font-family: var(--font-mono);
+  @apply leading-tight;
+  font-size: 9px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--color-text-faint);
+}
+
+.divider {
+  @apply w-px h-6;
+  background: var(--color-line);
+}

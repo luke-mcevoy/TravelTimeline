@@ -1,0 +1,96 @@
+@reference "tailwindcss";
+
+.strip {
+  @apply flex gap-1 mt-1.5 overflow-x-auto;
+  scrollbar-width: none;
+}
+
+.strip::-webkit-scrollbar {
+  display: none;
+}
+
+.thumb {
+  @apply shrink-0 rounded overflow-hidden cursor-pointer;
+  width: 40px;
+  height: 40px;
+}
+
+.thumbImage {
+  @apply w-full h-full object-cover transition-opacity;
+  opacity: 1;
+}
+
+.thumbLoading {
+  @apply w-full h-full animate-pulse;
+  background: var(--color-surface-3);
+}
+
+.thumbError {
+  display: none;
+}
+
+.moreCount {
+  @apply shrink-0 flex items-center justify-center rounded text-[10px] font-medium;
+  width: 40px;
+  height: 40px;
+  background: var(--color-surface-3);
+  color: var(--color-text-dim);
+}
+
+/* Lightbox */
+.lightbox {
+  @apply fixed inset-0 z-50 flex items-center justify-center;
+  background: rgba(0, 0, 0, 0.92);
+}
+
+.lightboxClose {
+  @apply absolute top-4 right-4 p-2;
+  color: var(--color-gray-400, #9ca3af);
+}
+
+.lightboxClose:hover {
+  @apply text-white;
+}
+
+.lightboxCloseIcon {
+  @apply h-6 w-6;
+}
+
+.lightboxNav {
+  @apply absolute p-2;
+  color: var(--color-gray-400, #9ca3af);
+}
+
+.lightboxNav:hover {
+  @apply text-white;
+}
+
+.lightboxNavLeft {
+  @apply left-4;
+}
+
+.lightboxNavRight {
+  @apply right-4;
+}
+
+.lightboxNavIcon {
+  @apply h-8 w-8;
+}
+
+.lightboxContent {
+  @apply flex flex-col items-center;
+  max-width: 90vw;
+  max-height: 85vh;
+}
+
+.lightboxImage {
+  @apply rounded-lg;
+  max-width: 100%;
+  max-height: 78vh;
+  object-fit: contain;
+}
+
+.lightboxCaption {
+  @apply mt-2 text-xs;
+  color: var(--color-gray-400, #9ca3af);
+}

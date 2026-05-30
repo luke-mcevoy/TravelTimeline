@@ -1,0 +1,96 @@
+@reference "tailwindcss";
+
+.wrapper {
+  @apply flex items-start gap-2 p-2.5 transition-colors;
+  background: rgba(7, 11, 19, 0.7);
+  border: 1px solid var(--color-line);
+}
+
+.wrapper:hover {
+  border-color: rgba(120, 190, 230, 0.22);
+}
+
+.dragHandle {
+  @apply mt-1 cursor-grab;
+  color: var(--color-text-faint);
+}
+
+.dragHandle:active {
+  @apply cursor-grabbing;
+}
+
+.dragHandle:hover {
+  color: var(--color-cyan);
+}
+
+.dragIcon {
+  @apply h-4 w-4;
+}
+
+.content {
+  @apply flex-1 min-w-0;
+}
+
+.header {
+  @apply flex items-center gap-1.5 mb-1.5;
+}
+
+.pinIcon {
+  @apply h-3.5 w-3.5 shrink-0;
+  color: var(--color-cyan);
+}
+
+.city {
+  font-family: var(--font-mono);
+  @apply text-xs font-medium text-white truncate;
+  letter-spacing: 0.04em;
+}
+
+.country {
+  @apply text-xs truncate;
+  color: var(--color-text-dim);
+}
+
+.dates {
+  @apply grid grid-cols-2 gap-1.5;
+}
+
+.dateLabel {
+  font-family: var(--font-mono);
+  @apply block mb-0.5 uppercase;
+  font-size: 9px;
+  letter-spacing: 0.16em;
+  color: var(--color-text-faint);
+}
+
+.dateInput {
+  @apply w-full px-2 py-1 text-xs;
+  font-family: var(--font-mono);
+  background: var(--color-void-2);
+  border: 1px solid var(--color-line);
+  color: var(--color-text-dim);
+  outline: none;
+  color-scheme: dark;
+}
+
+.dateInput:focus {
+  border-color: var(--color-cyan);
+  color: var(--color-text);
+}
+
+.deleteButton {
+  @apply mt-1 opacity-0 transition-opacity;
+  color: var(--color-text-faint);
+}
+
+.deleteButton:hover {
+  color: var(--color-danger);
+}
+
+.wrapper:hover .deleteButton {
+  @apply opacity-100;
+}
+
+.deleteIcon {
+  @apply h-3.5 w-3.5;
+}

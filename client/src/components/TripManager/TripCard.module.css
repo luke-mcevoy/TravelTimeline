@@ -1,0 +1,163 @@
+@reference "tailwindcss";
+
+.card {
+  @apply transition-colors;
+  border: 1px solid var(--color-line);
+  background: rgba(10, 16, 25, 0.5);
+}
+
+.card:hover {
+  border-color: rgba(120, 190, 230, 0.2);
+}
+
+.cardSelected {
+  border-color: rgba(56, 225, 255, 0.4);
+  background: rgba(14, 22, 34, 0.65);
+  box-shadow: inset 2px 0 0 var(--color-cyan), 0 0 24px rgba(56, 225, 255, 0.06);
+}
+
+.header {
+  @apply flex items-center gap-2 p-3 cursor-pointer;
+}
+
+.chevron {
+  @apply h-3.5 w-3.5 shrink-0;
+  color: var(--color-cyan);
+}
+
+.editWrapper {
+  @apply flex-1 flex items-center gap-1;
+}
+
+.editInput {
+  @apply flex-1 px-2 py-0.5 text-sm text-white;
+  font-family: var(--font-mono);
+  background: var(--color-void-2);
+  border: 1px solid var(--color-cyan);
+  outline: none;
+}
+
+.confirmButton {
+  color: var(--color-success);
+}
+
+.cancelButton {
+  color: var(--color-text-dim);
+}
+
+.confirmIcon,
+.cancelIcon {
+  @apply h-4 w-4;
+}
+
+.info {
+  @apply flex-1 min-w-0;
+}
+
+.name {
+  font-family: var(--font-mono);
+  @apply text-xs font-semibold text-white truncate;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.destCount {
+  font-family: var(--font-mono);
+  color: var(--color-text-faint);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.headerActions {
+  @apply flex items-center gap-1;
+}
+
+.headerActionButton {
+  @apply p-1 transition-colors;
+  color: var(--color-text-faint);
+}
+
+.headerActionButton:hover {
+  color: var(--color-cyan);
+}
+
+.headerDeleteButton {
+  @apply p-1 transition-colors;
+  color: var(--color-text-faint);
+}
+
+.headerDeleteButton:hover {
+  color: var(--color-danger);
+}
+
+.actionIcon {
+  @apply h-3.5 w-3.5;
+}
+
+.body {
+  @apply px-3 pb-3 space-y-2;
+}
+
+.addDestWrapper {
+  @apply space-y-2;
+}
+
+.addDestCancel {
+  font-family: var(--font-mono);
+  @apply text-xs;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--color-text-dim);
+}
+
+.addDestCancel:hover {
+  color: var(--color-text);
+}
+
+.addDestButton {
+  @apply flex items-center gap-1.5 w-full py-2 px-3;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--color-cyan);
+  background: rgba(56, 225, 255, 0.04);
+  border: 1px dashed rgba(120, 190, 230, 0.25);
+  transition: all 0.15s;
+}
+
+.addDestButton:hover {
+  color: var(--color-cyan-soft);
+  border-color: rgba(56, 225, 255, 0.5);
+  background: rgba(56, 225, 255, 0.08);
+}
+
+.addDestIcon {
+  @apply h-3.5 w-3.5;
+}
+
+.photosSection {
+  @apply mt-2 pt-2;
+  border-top: 1px solid var(--color-line);
+}
+
+.photosToggle {
+  font-family: var(--font-mono);
+  @apply flex items-center gap-1.5 text-xs mb-2;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--color-text-dim);
+}
+
+.photosToggle:hover {
+  color: var(--color-cyan);
+}
+
+.photosToggleIcon {
+  @apply h-3.5 w-3.5;
+}
+
+.photosContent {
+  @apply space-y-2;
+}

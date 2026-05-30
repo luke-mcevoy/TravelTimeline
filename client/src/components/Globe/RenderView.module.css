@@ -1,0 +1,40 @@
+@reference "tailwindcss";
+
+.root {
+  @apply relative;
+  width: 1920px;
+  height: 1080px;
+  background: radial-gradient(ellipse 80% 80% at 50% 45%, #061018 0%, #03060d 100%);
+}
+
+.canvas {
+  width: 1920px;
+  height: 1080px;
+}
+
+.overlay {
+  @apply absolute bottom-16 left-1/2 -translate-x-1/2 text-center;
+}
+
+.overlayInner {
+  @apply px-8 py-4;
+  background: rgba(5, 11, 18, 0.72);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(56, 225, 255, 0.3);
+  box-shadow: 0 0 40px rgba(56, 225, 255, 0.12);
+}
+
+.cityLabel {
+  font-family: var(--font-mono);
+  @apply text-3xl font-semibold text-white;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  text-shadow: 0 0 18px rgba(56, 225, 255, 0.5);
+}
+
+.dateLabel {
+  font-family: var(--font-mono);
+  @apply text-xl mt-2;
+  letter-spacing: 0.22em;
+  color: var(--color-cyan);
+}

@@ -1,0 +1,48 @@
+@reference "tailwindcss";
+
+.dropzone {
+  @apply relative p-3 text-center transition-colors;
+  border: 1px dashed rgba(120, 190, 230, 0.25);
+}
+
+.dropzone:hover {
+  border-color: rgba(120, 190, 230, 0.4);
+}
+
+.dropzoneActive {
+  border-color: var(--color-cyan);
+  background: rgba(56, 225, 255, 0.08);
+}
+
+.processing {
+  @apply flex items-center justify-center gap-2 py-1;
+}
+
+.processingSpinner {
+  @apply h-4 w-4 animate-spin;
+  color: var(--color-cyan);
+}
+
+.processingText {
+  font-family: var(--font-mono);
+  @apply text-xs;
+  letter-spacing: 0.08em;
+  color: var(--color-text-dim);
+}
+
+.label {
+  @apply flex flex-col items-center gap-1 cursor-pointer py-1;
+}
+
+.labelIcon {
+  @apply h-5 w-5;
+  color: var(--color-text-faint);
+}
+
+.labelText {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--color-text-faint);
+}

@@ -1,0 +1,212 @@
+@reference "tailwindcss";
+
+.toggleButton {
+  @apply absolute top-16 left-4 z-20 p-2.5;
+  background: rgba(6, 11, 18, 0.85);
+  backdrop-filter: blur(10px);
+  border: 1px solid var(--color-line);
+  transition: all 0.2s;
+}
+
+.toggleButton:hover {
+  border-color: var(--color-line-strong);
+  background: rgba(56, 225, 255, 0.08);
+}
+
+.toggleIcon {
+  @apply h-5 w-5;
+  color: var(--color-cyan);
+}
+
+.panel {
+  @apply absolute top-16 left-4 bottom-28 z-20 w-80 flex flex-col overflow-hidden;
+  background: rgba(6, 11, 18, 0.86);
+  backdrop-filter: blur(24px);
+  border: 1px solid var(--color-line);
+  box-shadow:
+    0 24px 60px -18px rgba(0, 0, 0, 0.7),
+    0 0 50px rgba(56, 225, 255, 0.04),
+    inset 0 1px 0 rgba(255, 255, 255, 0.03);
+  clip-path: polygon(0 0, 100% 0, 100% calc(100% - 16px), calc(100% - 16px) 100%, 0 100%);
+}
+
+.header {
+  @apply relative flex items-center gap-3 px-4 py-3;
+  border-bottom: 1px solid var(--color-line);
+}
+
+.header::before {
+  content: '';
+  position: absolute;
+  bottom: -1px;
+  left: 16px;
+  width: 56px;
+  height: 1px;
+  background: var(--color-cyan);
+  box-shadow: 0 0 8px var(--color-cyan);
+}
+
+.headerIcon {
+  @apply h-4 w-4;
+  color: var(--color-cyan);
+  filter: drop-shadow(0 0 6px rgba(56, 225, 255, 0.5));
+}
+
+.headerTitle {
+  font-family: var(--font-mono);
+  @apply text-xs font-semibold flex-1;
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+  color: var(--color-text);
+}
+
+.closeButton {
+  @apply p-1 transition-colors;
+  color: var(--color-text-faint);
+}
+
+.closeButton:hover {
+  color: var(--color-cyan);
+}
+
+.closeIcon {
+  @apply h-4 w-4;
+}
+
+.actions {
+  @apply flex items-center gap-1.5 px-3 py-2.5;
+  border-bottom: 1px solid var(--color-line);
+}
+
+.newTripButton {
+  @apply flex items-center gap-1.5 px-2.5 py-1.5;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--color-cyan);
+  background: rgba(56, 225, 255, 0.08);
+  border: 1px solid rgba(56, 225, 255, 0.25);
+  transition: all 0.15s;
+}
+
+.newTripButton:hover {
+  background: rgba(56, 225, 255, 0.16);
+  border-color: rgba(56, 225, 255, 0.45);
+}
+
+.newTripButtonIcon {
+  @apply h-3.5 w-3.5;
+}
+
+.actionsSpacer {
+  @apply flex-1;
+}
+
+.iconButton {
+  @apply p-1.5 transition-colors;
+  color: var(--color-text-faint);
+  border: 1px solid transparent;
+}
+
+.iconButton:hover {
+  color: var(--color-cyan);
+  border-color: var(--color-line);
+}
+
+.iconButton:disabled {
+  @apply opacity-30 cursor-not-allowed;
+}
+
+.iconButton:disabled:hover {
+  color: var(--color-text-faint);
+  border-color: transparent;
+}
+
+.iconButtonSmall {
+  @apply h-3.5 w-3.5;
+}
+
+.tripList {
+  @apply flex-1 overflow-y-auto px-3 py-3 space-y-2;
+}
+
+.createForm {
+  @apply p-3 space-y-2;
+  background: rgba(10, 16, 25, 0.8);
+  border: 1px solid rgba(56, 225, 255, 0.3);
+}
+
+.createInput {
+  @apply w-full px-3 py-2 text-sm text-white;
+  font-family: var(--font-mono);
+  background: var(--color-void-2);
+  border: 1px solid var(--color-line);
+  outline: none;
+}
+
+.createInput::placeholder {
+  color: var(--color-text-faint);
+}
+
+.createInput:focus {
+  border-color: var(--color-cyan);
+  box-shadow: 0 0 0 1px rgba(56, 225, 255, 0.3);
+}
+
+.createActions {
+  @apply flex gap-2;
+}
+
+.createSubmit {
+  @apply flex-1 py-1.5;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: #04101a;
+  font-weight: 600;
+  background: var(--color-cyan);
+  transition: all 0.15s;
+}
+
+.createSubmit:hover {
+  background: var(--color-cyan-soft);
+  box-shadow: 0 0 16px rgba(56, 225, 255, 0.4);
+}
+
+.createCancel {
+  @apply px-3 py-1.5;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--color-text-dim);
+  transition: color 0.15s;
+}
+
+.createCancel:hover {
+  color: var(--color-text);
+}
+
+.emptyState {
+  @apply text-center py-14;
+}
+
+.emptyIcon {
+  @apply h-10 w-10 mx-auto mb-3;
+  color: var(--color-line-strong);
+}
+
+.emptyTitle {
+  font-family: var(--font-mono);
+  @apply text-xs mb-1.5;
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  color: var(--color-text-dim);
+}
+
+.emptySubtitle {
+  @apply text-xs;
+  color: var(--color-text-faint);
+}

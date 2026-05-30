@@ -1,0 +1,25 @@
+@reference "tailwindcss";
+
+.root {
+  @apply relative w-full h-full overflow-hidden;
+  background: transparent;
+}
+
+.globeWrap {
+  @apply absolute inset-0;
+  z-index: 1;
+}
+
+/* Atmospheric bloom centered behind the planet */
+.globeGlow {
+  @apply absolute;
+  top: 50%;
+  left: 50%;
+  width: 70vmin;
+  height: 70vmin;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(56, 225, 255, 0.10) 0%, rgba(78, 168, 255, 0.05) 45%, transparent 70%);
+  filter: blur(20px);
+  pointer-events: none;
+}

@@ -1,0 +1,213 @@
+@reference "tailwindcss";
+
+.button {
+  @apply flex items-center gap-1.5 px-2.5 py-1.5;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--color-cyan);
+  background: rgba(56, 225, 255, 0.08);
+  border: 1px solid rgba(56, 225, 255, 0.25);
+  transition: all 0.15s;
+}
+
+.button:hover {
+  background: rgba(56, 225, 255, 0.16);
+  border-color: rgba(56, 225, 255, 0.45);
+}
+
+.buttonIcon {
+  @apply h-3.5 w-3.5;
+}
+
+.modal {
+  @apply fixed inset-0 z-50 flex items-center justify-center;
+  background: rgba(2, 5, 11, 0.78);
+  backdrop-filter: blur(6px);
+}
+
+.dialog {
+  @apply relative w-96 p-5;
+  background: rgba(8, 13, 21, 0.97);
+  border: 1px solid var(--color-line-strong);
+  box-shadow: 0 30px 60px -16px rgba(0, 0, 0, 0.8), 0 0 60px rgba(56, 225, 255, 0.06);
+  clip-path: polygon(0 0, 100% 0, 100% calc(100% - 18px), calc(100% - 18px) 100%, 0 100%);
+}
+
+.header {
+  @apply flex items-center gap-3 mb-4;
+}
+
+.headerIcon {
+  @apply h-7 w-7;
+  color: var(--color-cyan);
+  filter: drop-shadow(0 0 8px rgba(56, 225, 255, 0.5));
+}
+
+.headerText h3 {
+  font-family: var(--font-mono);
+  @apply text-xs font-semibold text-white;
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+}
+
+.headerText p {
+  @apply text-xs mt-1;
+  color: var(--color-text-dim);
+}
+
+.windowSection {
+  @apply mb-4;
+}
+
+.windowLabel {
+  font-family: var(--font-mono);
+  @apply block text-xs font-medium mb-2;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--color-text-dim);
+}
+
+.windowGroup {
+  @apply flex gap-1.5;
+}
+
+.windowOption {
+  @apply flex-1 py-2;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--color-text-dim);
+  background: var(--color-void-2);
+  border: 1px solid var(--color-line);
+  transition: all 0.15s;
+}
+
+.windowOption:hover {
+  color: var(--color-text);
+  border-color: var(--color-line-strong);
+}
+
+.windowOptionActive {
+  color: #04101a;
+  font-weight: 600;
+  background: var(--color-cyan);
+  border-color: var(--color-cyan);
+  box-shadow: 0 0 14px rgba(56, 225, 255, 0.35);
+}
+
+.windowOptionActive:hover {
+  color: #04101a;
+}
+
+.progressHint {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  color: var(--color-text-faint);
+}
+
+.progressArea {
+  @apply mb-4 space-y-2;
+}
+
+.progressMessage {
+  font-family: var(--font-mono);
+  @apply text-xs;
+  letter-spacing: 0.04em;
+  color: var(--color-text-dim);
+}
+
+.progressBarTrack {
+  @apply w-full h-1.5 overflow-hidden;
+  background: rgba(120, 190, 230, 0.12);
+}
+
+.progressBarFill {
+  @apply h-full transition-all duration-300;
+  background: linear-gradient(to right, var(--color-cyan-dim), var(--color-cyan));
+  box-shadow: 0 0 12px rgba(56, 225, 255, 0.6);
+}
+
+.resultSummary {
+  @apply mb-4 p-3 text-xs space-y-1;
+  background: rgba(75, 232, 168, 0.08);
+  border: 1px solid rgba(75, 232, 168, 0.3);
+}
+
+.resultTitle {
+  font-family: var(--font-mono);
+  @apply font-semibold;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--color-success);
+}
+
+.resultDetail {
+  color: var(--color-text-dim);
+}
+
+.errorBox {
+  @apply mb-4 p-3 text-xs;
+  font-family: var(--font-mono);
+  background: rgba(255, 95, 109, 0.08);
+  border: 1px solid rgba(255, 95, 109, 0.3);
+  color: var(--color-danger);
+  white-space: pre-wrap;
+  line-height: 1.5;
+}
+
+.actions {
+  @apply flex gap-2;
+}
+
+.primaryButton {
+  @apply flex-1 py-2 flex items-center justify-center gap-2;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-weight: 600;
+  color: #04101a;
+  background: var(--color-cyan);
+  transition: all 0.15s;
+}
+
+.primaryButton:hover {
+  background: var(--color-cyan-soft);
+  box-shadow: 0 0 18px rgba(56, 225, 255, 0.4);
+}
+
+.primaryButton:disabled {
+  @apply opacity-50 cursor-not-allowed;
+}
+
+.secondaryButton {
+  @apply px-4 py-2;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--color-text-dim);
+  border: 1px solid var(--color-line);
+  transition: all 0.15s;
+}
+
+.secondaryButton:hover {
+  color: var(--color-text);
+  border-color: var(--color-line-strong);
+}
+
+.spinner {
+  @apply h-3.5 w-3.5 animate-spin;
+}
+
+.permissionNote {
+  @apply mt-3 p-3 text-xs;
+  background: rgba(255, 180, 84, 0.07);
+  border: 1px solid rgba(255, 180, 84, 0.3);
+  color: var(--color-amber);
+  line-height: 1.5;
+}
