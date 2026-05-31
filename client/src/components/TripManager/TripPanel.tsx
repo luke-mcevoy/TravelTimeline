@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react';
-import { isNativePlatform } from '@/services/photoSource';
+import { isNativePlatform, refreshPlaceNames } from '@/services/photoSource';
 import {
   PanelLeftClose,
   PanelLeftOpen,
@@ -7,6 +7,7 @@ import {
   Upload,
   Globe2,
   Trash2,
+  MapPinned,
 } from 'lucide-react';
 import { useTripStore } from '@/stores/tripStore';
 import { exportTripsToJson, importTripsFromJson } from '@/utils/storage';
@@ -37,6 +38,22 @@ export function TripPanel() {
     selectTrip(null);
     resetAnimation();
     await clearAllPhotos().catch(() => {});
+  };
+
+  const [namingPct, setNamingPct] = useState<number | null>(null);
+
+  const handleRefreshNames = async () => {
+    if (trips.length === 0 || namingPct !== null) return;
+    setNamingPct(0);
+    try {
+      const updated = await refreshPlaceNames(trips, (done, total) =>
+        setNamingPct(total ? Math.round((done / total) * 100) : 0)
+      );
+      setTrips(updated);
+    } catch {
+      /* leave existing names in place on failure */
+    }
+    setNamingPct(null);
   };
 
   const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -90,6 +107,16 @@ export function TripPanel() {
         >
           <Upload className={styles.iconButtonSmall} />
         </button>
+        {isNativePlatform && (
+          <button
+            onClick={handleRefreshNames}
+            className={styles.iconButton}
+            title="Re-resolve place names"
+            disabled={trips.length === 0 || namingPct !== null}
+          >
+            <MapPinned className={styles.iconButtonSmall} />
+          </button>
+        )}
         <button
           onClick={handleClearAll}
           className={styles.iconButton}
@@ -106,6 +133,20 @@ export function TripPanel() {
           className="hidden"
         />
       </div>
+
+      {namingPct !== null && (
+        <p
+          style={{
+            fontFamily: 'var(--font-mono)',
+            fontSize: 11,
+            letterSpacing: '0.08em',
+            color: 'var(--color-cyan)',
+            padding: '4px 12px 0',
+          }}
+        >
+          Resolving place names… {namingPct}%
+        </p>
+      )}
 
       <div className={styles.tripList}>
         {trips.length === 0 ? (

@@ -3,7 +3,7 @@ import Globe, { type GlobeInstance } from 'globe.gl';
 import * as THREE from 'three';
 import { useTripStore } from '@/stores/tripStore';
 import { useGlobeStore } from '@/stores/globeStore';
-import { isNativePlatform, loadPhotoSrc } from '@/services/photoSource';
+import { isNativePlatform, loadPhotoSrc, HERO_PHOTO_WIDTH } from '@/services/photoSource';
 import { spaceFactor } from '@/utils/spaceView';
 import type { ServerPhotoRef } from '@/types';
 import './GlobeView.module.css';
@@ -39,6 +39,12 @@ const SATELLITE_TILE_URL = (x: number, y: number, level: number) =>
 // deep tiles (level 20) for a large area would exhaust it and crash the renderer
 // on zoom-in, so we cap the depth lower on native. Desktop GPUs can go deeper.
 const SATELLITE_MAX_LEVEL = isNativePlatform ? 18 : 20;
+
+// While the story is auto-playing the camera sweeps fast across the globe, and
+// streaming/uploading deep tiles on every hop is the main cause of the hitch on
+// big moves. Cap the tile depth lower during playback (coarser, but far fewer
+// texture uploads → smooth motion); it sharpens back up the moment you pause.
+const SATELLITE_PLAYBACK_LEVEL = isNativePlatform ? 15 : 17;
 
 // How the tile engine picks a zoom level (from three-slippy-map-globe):
 //
@@ -83,7 +89,11 @@ function tuneTileLayers(globe: GlobeInstance): boolean {
   return tuned > 0;
 }
 
-const GLOBE_IMAGE = '/earth-day-8k.jpg?v=1';
+// The 8K base decodes to ~180MB of GPU memory (with mipmaps) — far more than a
+// phone wants resident, and the satellite tile engine supplies the real detail
+// when zoomed anyway. Native uses a 4K base (≈45MB) for a big memory saving with
+// no visible difference at the overview distance.
+const GLOBE_IMAGE = isNativePlatform ? '/earth-day-4k.jpg' : '/earth-day-8k.jpg?v=1';
 const BUMP_IMAGE = '/earth-topology.png';
 const WATER_IMAGE = '/earth-water.png';
 
@@ -146,17 +156,23 @@ function patchArcMaterial(mat: ArcShaderMat): boolean {
   return true;
 }
 
-function setArcOpacity(globe: GlobeInstance, opacity: number) {
+// Collect (and patch) every arc's shader material. Walking the scene graph is
+// relatively expensive — the tile engine adds hundreds of meshes — so we only
+// do this when the set of arcs actually changes, cache the result, and then
+// drive opacity from the cache every frame instead of re-traversing.
+function collectArcMaterials(globe: GlobeInstance): ArcShaderMat[] {
   const scene = globe.scene();
-  if (!scene) return;
+  if (!scene) return [];
+  const mats: ArcShaderMat[] = [];
   scene.traverse((o) => {
     if ((o as { __globeObjType?: string }).__globeObjType !== 'arc') return;
     const mesh = o.children[0] as THREE.Mesh | undefined;
     const mat = mesh?.material as ArcShaderMat | undefined;
     if (!mat || !mat.uniforms) return;
     if (!patchArcMaterial(mat)) return;
-    mat.uniforms.uArcOpacity.value = opacity;
+    mats.push(mat);
   });
+  return mats;
 }
 
 function arcOpacityForDistance(d: number): number {
@@ -183,7 +199,7 @@ const preloadCache = new Map<string, HTMLImageElement>();
 // server URL we pre-fetch into an <img>; on native loadPhotoSrc itself caches
 // the PhotoKit thumbnail (so usePhotoSrc returns it instantly later).
 function preloadPhoto(ref: ServerPhotoRef) {
-  loadPhotoSrc(ref, 1400)
+  loadPhotoSrc(ref, HERO_PHOTO_WIDTH)
     .then((src) => {
       if (isNativePlatform || preloadCache.has(src)) return;
       const img = new Image();
@@ -196,7 +212,6 @@ function preloadPhoto(ref: ServerPhotoRef) {
 export function GlobeView() {
   const containerRef = useRef<HTMLDivElement>(null);
   const globeRef = useRef<GlobeInstance | null>(null);
-  const arcOpacityRef = useRef(1);
   const arcStrokeRef = useRef(ARC_MAX_STROKE);
   const updateArcsRef = useRef<() => void>(() => {});
   const setGlobeInstance = useGlobeStore((s) => s.setGlobeInstance);
@@ -210,12 +225,19 @@ export function GlobeView() {
 
     const globe = new Globe(containerRef.current)
       .globeImageUrl(GLOBE_IMAGE)
-      .bumpImageUrl(BUMP_IMAGE)
       .backgroundColor('rgba(0, 0, 0, 0)')
       .showAtmosphere(true)
       .atmosphereColor('#38e1ff')
       .atmosphereAltitude(0.28)
-      .pointOfView({ lat: 20, lng: 0, altitude: 2.5 })
+      .pointOfView({ lat: 20, lng: 0, altitude: 2.5 });
+    // The bump + specular maps add per-fragment texture fetches and lighting math
+    // across the whole globe every frame. The satellite tiles already carry shaded
+    // terrain detail, so we skip them on the phone (where fragment budget is tight)
+    // and keep them only for the desktop's spare GPU headroom.
+    if (!isNativePlatform) {
+      globe.bumpImageUrl(BUMP_IMAGE);
+    }
+    globe
       // Arcs — thin glowing lines (kept slim so they read as flight paths,
       // not giant ribbons, even when the camera is zoomed in close)
       .arcColor('color' as never)
@@ -255,11 +277,14 @@ export function GlobeView() {
       let done = true;
       if (mat.map) mat.map.anisotropy = maxAnisotropy, (mat.map.needsUpdate = true);
       else done = false;
+      // The bump map only exists on web (skipped on native for performance).
       if (mat.bumpMap) {
         mat.bumpMap.anisotropy = maxAnisotropy;
         mat.bumpMap.needsUpdate = true;
         mat.bumpScale = 6;
-      } else done = false;
+      } else if (!isNativePlatform) {
+        done = false;
+      }
       if (!tilesTuned) {
         tilesTuned = tuneTileLayers(globe);
         if (!tilesTuned) done = false;
@@ -267,14 +292,17 @@ export function GlobeView() {
       if (done || ++sharpenTries > 40) window.clearInterval(sharpenInterval);
     }, 100);
 
-    // Ocean specular sheen via a water mask
-    loader.load(WATER_IMAGE, (waterTex) => {
-      waterTex.anisotropy = maxAnisotropy;
-      mat.specularMap = waterTex;
-      mat.specular = new THREE.Color('#1b2a38');
-      mat.shininess = 16;
-      mat.needsUpdate = true;
-    });
+    // Ocean specular sheen via a water mask — desktop only; the extra texture
+    // fetch + specular term per fragment isn't worth the phone's GPU budget.
+    if (!isNativePlatform) {
+      loader.load(WATER_IMAGE, (waterTex) => {
+        waterTex.anisotropy = maxAnisotropy;
+        mat.specularMap = waterTex;
+        mat.specular = new THREE.Color('#1b2a38');
+        mat.shininess = 16;
+        mat.needsUpdate = true;
+      });
+    }
 
     // ── Lighting: ambient fill + directional for ocean highlight ─────
     const ambient = new THREE.AmbientLight(0xffffff, 0.85);
@@ -308,9 +336,6 @@ export function GlobeView() {
     let panDisposed = false;
     const panLoop = () => {
       if (panDisposed) return;
-      // Re-assert arc opacity every frame so an arc that three-globe revealed this
-      // frame is dimmed immediately instead of flashing at full brightness.
-      setArcOpacity(globe, arcOpacityRef.current);
       const cam = globe.camera();
       const orbitDist = cam.position.distanceTo(controls.target);
       if (orbitDist > PAN_ENABLE_DIST) {
@@ -327,6 +352,20 @@ export function GlobeView() {
     };
     panRaf = requestAnimationFrame(panLoop);
 
+    // Cache of the arc shader materials. Refreshed only when the arc set changes
+    // (see updateArcsRef below); read every frame to set opacity without a walk.
+    let arcMats: ArcShaderMat[] = [];
+    const applyArcOpacity = (opacity: number) => {
+      for (let i = 0; i < arcMats.length; i++) {
+        arcMats[i].uniforms.uArcOpacity.value = opacity;
+      }
+    };
+
+    // Debounced arc-stroke application (see below): only rebuild geometry once
+    // the camera has settled, never during a sweep.
+    let pendingStroke = arcStrokeRef.current;
+    let strokeSettleTimer = 0;
+
     // Dim the flight arcs as the camera flies in, brighten them at the overview,
     // then fade them out entirely once we pull back into the "space view" (where
     // the Earth→Moon beam takes over).
@@ -342,16 +381,35 @@ export function GlobeView() {
       const opacity = (playing ? ARC_PLAYBACK_OPACITY : arcOpacityForDistance(distance)) * space;
       const stroke = playing ? ARC_PLAYBACK_STROKE : arcStrokeForDistance(distance);
 
-      arcOpacityRef.current = opacity;
-      setArcOpacity(globe, opacity);
+      applyArcOpacity(opacity);
 
-      // arcStroke rebuilds tube geometry, so only push an update on a real change.
-      if (Math.abs(stroke - arcStrokeRef.current) > 1e-4) {
-        arcStrokeRef.current = stroke;
-        globe.arcStroke(stroke);
+      // arcStroke rebuilds ALL arc tube geometries — far too expensive to do
+      // mid-flight. During playback the stroke is constant, so apply it once.
+      // Otherwise (manual zoom/tap-to-fly) debounce it so the rebuild happens
+      // only after the camera settles, never during a sweep.
+      if (playing) {
+        if (Math.abs(stroke - arcStrokeRef.current) > 1e-4) {
+          arcStrokeRef.current = stroke;
+          globe.arcStroke(stroke);
+        }
+      } else {
+        pendingStroke = stroke;
+        clearTimeout(strokeSettleTimer);
+        strokeSettleTimer = window.setTimeout(() => {
+          if (Math.abs(pendingStroke - arcStrokeRef.current) > 1e-4) {
+            arcStrokeRef.current = pendingStroke;
+            globe.arcStroke(pendingStroke);
+          }
+        }, 150);
       }
     };
-    updateArcsRef.current = updateArcBrightness;
+    // When the arc set changes, re-collect the (possibly new) materials once,
+    // then re-apply the current look. The cheap per-frame 'change' handler reuses
+    // the cached materials.
+    updateArcsRef.current = () => {
+      arcMats = collectArcMaterials(globe);
+      updateArcBrightness();
+    };
     controls.addEventListener('change', updateArcBrightness);
     updateArcBrightness();
 
@@ -371,6 +429,7 @@ export function GlobeView() {
       window.removeEventListener('resize', handleResize);
       window.clearInterval(sharpenInterval);
       controls.removeEventListener('change', updateArcBrightness);
+      clearTimeout(strokeSettleTimer);
       panDisposed = true;
       if (panRaf) cancelAnimationFrame(panRaf);
       setGlobeInstance(null);
@@ -433,6 +492,16 @@ export function GlobeView() {
     const raf = requestAnimationFrame(() => updateArcsRef.current());
     return () => cancelAnimationFrame(raf);
   }, [trips, animation.currentDestinationIndex, animation.isPlaying, buildGlobeData]);
+
+  // Drop tile detail while auto-playing so fast hops don't churn deep tiles;
+  // restore full detail (which sharpens the view) the moment playback stops.
+  useEffect(() => {
+    const globe = globeRef.current as TileEngineGlobe | null;
+    if (!globe) return;
+    globe.globeTileEngineMaxLevel(
+      animation.isPlaying ? SATELLITE_PLAYBACK_LEVEL : SATELLITE_MAX_LEVEL
+    );
+  }, [animation.isPlaying]);
 
   return (
     <div

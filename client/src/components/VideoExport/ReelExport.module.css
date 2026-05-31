@@ -1,0 +1,200 @@
+@reference "tailwindcss";
+
+/* Trigger pill — stacked under the Passport pill on the right rail. */
+.trigger {
+  @apply absolute z-10 flex items-center gap-2 transition-all;
+  top: calc(var(--safe-top) + 148px);
+  right: calc(var(--safe-right) + 12px);
+  padding: 7px 12px;
+  border-radius: 999px;
+  background: rgba(6, 11, 18, 0.72);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(56, 225, 255, 0.28);
+  box-shadow: 0 0 18px rgba(56, 225, 255, 0.12);
+  cursor: pointer;
+}
+
+.trigger:hover {
+  border-color: rgba(56, 225, 255, 0.55);
+  background: rgba(56, 225, 255, 0.12);
+}
+
+.triggerIcon {
+  @apply h-4 w-4;
+  color: var(--color-cyan);
+  filter: drop-shadow(0 0 6px rgba(56, 225, 255, 0.5));
+}
+
+.triggerText {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  color: var(--color-text);
+}
+
+/* Modal */
+.backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: radial-gradient(
+    ellipse 80% 60% at 50% 40%,
+    rgba(8, 16, 26, 0.92),
+    rgba(2, 4, 9, 0.97)
+  );
+  backdrop-filter: blur(14px);
+  animation: reel-fade 0.25s ease;
+}
+
+@keyframes reel-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.card {
+  position: relative;
+  width: min(440px, 100%);
+  max-height: 90vh;
+  overflow: auto;
+  border-radius: 22px;
+  background: rgba(8, 13, 20, 0.92);
+  border: 1px solid rgba(56, 225, 255, 0.22);
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.6);
+  padding: 28px 24px;
+}
+
+.closeBtn {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  color: rgba(234, 246, 255, 0.8);
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  cursor: pointer;
+}
+
+.body {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 14px;
+}
+
+.hero {
+  width: 44px;
+  height: 44px;
+  color: var(--color-cyan);
+  filter: drop-shadow(0 0 12px rgba(56, 225, 255, 0.5));
+  margin-top: 8px;
+}
+
+.title {
+  font-family: var(--font-mono);
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: #eaf6ff;
+}
+
+.sub {
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: rgba(180, 205, 225, 0.85);
+  max-width: 320px;
+}
+
+.primary,
+.secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px 20px;
+  border-radius: 12px;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.primary {
+  color: #02121a;
+  background: linear-gradient(180deg, #6fe9ff, #38e1ff);
+  border: none;
+  box-shadow: 0 0 20px rgba(56, 225, 255, 0.4);
+}
+
+.primary:hover {
+  filter: brightness(1.08);
+}
+
+.secondary {
+  color: #eaf6ff;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(56, 225, 255, 0.35);
+}
+
+.actions {
+  display: flex;
+  gap: 12px;
+  width: 100%;
+  justify-content: center;
+}
+
+.preview {
+  width: 100%;
+  max-height: 62vh;
+  border-radius: 14px;
+  background: #04070d;
+  border: 1px solid rgba(56, 225, 255, 0.2);
+}
+
+.spinner {
+  width: 38px;
+  height: 38px;
+  color: var(--color-cyan);
+  animation: reel-spin 1s linear infinite;
+  margin-top: 8px;
+}
+
+@keyframes reel-spin {
+  to { transform: rotate(360deg); }
+}
+
+.spinnerInline {
+  animation: reel-spin 1s linear infinite;
+}
+
+.track {
+  width: 100%;
+  height: 6px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.1);
+  overflow: hidden;
+}
+
+.fill {
+  height: 100%;
+  background: linear-gradient(90deg, #38e1ff, #6fe9ff);
+  transition: width 0.2s ease;
+}
+
+.pct {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: rgba(180, 205, 225, 0.8);
+}

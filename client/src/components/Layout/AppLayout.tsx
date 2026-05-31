@@ -8,6 +8,7 @@ import { HudFrame } from '@/components/Layout/HudFrame'
 import { TripPanel } from '@/components/TripManager/TripPanel'
 import { TimelineBar } from '@/components/Timeline/TimelineBar'
 import { VideoExportButton } from '@/components/VideoExport/VideoExportButton'
+import { ReelExport } from '@/components/VideoExport/ReelExport'
 import { StatsBar } from '@/components/Layout/StatsBar'
 import { useUiStore } from '@/stores/uiStore'
 import styles from './AppLayout.module.css'
@@ -61,6 +62,7 @@ export function AppLayout() {
       <StatsBar />
       <AroundTheWorld />
       <Passport />
+      <ReelExport />
       <VideoExportButton />
     </div>
   )

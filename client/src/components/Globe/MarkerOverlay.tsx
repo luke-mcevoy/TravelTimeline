@@ -29,6 +29,11 @@ interface MarkerEl {
   lat: number;
   lng: number;
   index: number;
+  // Cached last-applied state so the per-frame loop only writes to the DOM when
+  // a value actually changes (avoids needless style recalcs every frame).
+  shown: boolean;
+  active: boolean;
+  labelOn: boolean;
 }
 
 const DEG = Math.PI / 180;
@@ -57,8 +62,10 @@ export function MarkerOverlay() {
     elsRef.current = dests.map((d, i) => {
       const wrap = document.createElement('div');
       wrap.className = 'globe-marker';
+      // Positioned via `transform` (compositor-only) rather than left/top, which
+      // would force a layout on every marker every frame.
       wrap.style.cssText =
-        'position:absolute;transform:translate(-50%,-50%);cursor:pointer;pointer-events:auto;display:none;';
+        'position:absolute;top:0;left:0;will-change:transform;cursor:pointer;pointer-events:auto;display:none;';
       wrap.title = d.city;
       const goToCity = (e: Event) => {
         e.stopPropagation();
@@ -128,7 +135,17 @@ export function MarkerOverlay() {
       wrap.appendChild(label);
 
       container.appendChild(wrap);
-      return { wrap, dot, label, lat: d.lat, lng: d.lng, index: i };
+      return {
+        wrap,
+        dot,
+        label,
+        lat: d.lat,
+        lng: d.lng,
+        index: i,
+        shown: false,
+        active: false,
+        labelOn: false,
+      };
     });
   }, [trips, getSorted]);
 
@@ -154,6 +171,7 @@ export function MarkerOverlay() {
       const sinPov = Math.sin(pov.lat * DEG);
       const cosPov = Math.cos(pov.lat * DEG);
 
+      const showLabel = useUiStore.getState().showCityLabel;
       for (const e of elsRef.current) {
         // Show a dot for EVERY visited city (not just the ones revealed so far),
         // so it's always clear where you've been — only the far side is hidden.
@@ -161,17 +179,28 @@ export function MarkerOverlay() {
           Math.sin(e.lat * DEG) * sinPov +
           Math.cos(e.lat * DEG) * cosPov * Math.cos((e.lng - pov.lng) * DEG);
         if (cosG <= minCos) {
-          e.wrap.style.display = 'none';
+          if (e.shown) {
+            e.wrap.style.display = 'none';
+            e.shown = false;
+          }
           continue;
         }
         const s = g.getScreenCoords(e.lat, e.lng, 0);
-        e.wrap.style.left = `${s.x}px`;
-        e.wrap.style.top = `${s.y}px`;
-        e.wrap.style.display = 'block';
+        e.wrap.style.transform = `translate3d(${s.x}px, ${s.y}px, 0) translate(-50%, -50%)`;
+        if (!e.shown) {
+          e.wrap.style.display = 'block';
+          e.shown = true;
+        }
         const active = e.index === animation.currentDestinationIndex;
-        e.dot.className = active ? 'globe-pin globe-pin--active' : 'globe-dot-marker';
-        e.label.style.display =
-          active && useUiStore.getState().showCityLabel ? 'flex' : 'none';
+        if (active !== e.active) {
+          e.dot.className = active ? 'globe-pin globe-pin--active' : 'globe-dot-marker';
+          e.active = active;
+        }
+        const labelOn = active && showLabel;
+        if (labelOn !== e.labelOn) {
+          e.label.style.display = labelOn ? 'flex' : 'none';
+          e.labelOn = labelOn;
+        }
       }
       rafRef.current = requestAnimationFrame(loop);
     };

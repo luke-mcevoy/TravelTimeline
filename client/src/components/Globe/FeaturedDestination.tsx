@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { ChevronLeft, ChevronRight, X, Image as ImageIcon } from 'lucide-react';
 import { useTripStore } from '@/stores/tripStore';
 import { useUiStore } from '@/stores/uiStore';
-import { usePhotoSrc } from '@/services/photoSource';
+import { usePhotoSrc, HERO_PHOTO_WIDTH } from '@/services/photoSource';
 import styles from './FeaturedDestination.module.css';
 
 function formatDate(iso: string): string {
@@ -33,7 +33,7 @@ export function FeaturedDestination() {
   const clampedIndex = Math.min(photoIndex, Math.max(0, photos.length - 1));
   const photo = photos[clampedIndex];
   // Hook must run every render — feed it null when there's nothing to show.
-  const src = usePhotoSrc(photo ?? null, 1400);
+  const src = usePhotoSrc(photo ?? null, HERO_PHOTO_WIDTH);
 
   // ── Crossfade between photos (never fade through black) ──
   // `committedSrc` is the photo currently shown in the base layer; `incomingSrc`

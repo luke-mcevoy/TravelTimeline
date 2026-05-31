@@ -297,17 +297,23 @@ export function MoonScene() {
     // Drive beam opacity from the camera distance every frame.
     let rafId = 0;
     let disposed = false;
+    let lastS = -1;
     const camDir = new THREE.Vector3();
     const tick = () => {
       if (disposed) return;
       const s = spaceFactor(camera.position.length());
-      fullMat.opacity = 0.3 * s;
-      if (beamMat) beamMat.opacity = 0.95 * s;
-      nodeMat.opacity = s;
-      const beamVisible = s > 0.001;
-      fullLine.visible = beamVisible;
-      node.visible = beamVisible;
-      if (beam) beam.visible = beamVisible;
+      // The beam's look only depends on `s` (camera distance); skip the material
+      // writes entirely on frames where it hasn't meaningfully changed.
+      if (Math.abs(s - lastS) > 0.001) {
+        lastS = s;
+        fullMat.opacity = 0.3 * s;
+        if (beamMat) beamMat.opacity = 0.95 * s;
+        nodeMat.opacity = s;
+        const beamVisible = s > 0.001;
+        fullLine.visible = beamVisible;
+        node.visible = beamVisible;
+        if (beam) beam.visible = beamVisible;
+      }
 
       // Keep the Skittle's flat face — and its "S" — pointed at the viewer no
       // matter how the globe is rotated or zoomed.

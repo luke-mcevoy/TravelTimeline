@@ -4,8 +4,8 @@
 
 import { useEffect, useState } from 'react';
 import { Capacitor } from '@capacitor/core';
-import type { ServerPhotoRef } from '@/types';
-import { Photos } from '@/native/photos';
+import type { ServerPhotoRef, Trip, Destination } from '@/types';
+import { Photos, type ReverseGeocodeResult } from '@/native/photos';
 import { initGeocoder, countryName } from './geo';
 import { inferTrips, renameTrip, type InferredTrip } from './tripInference';
 
@@ -98,23 +98,148 @@ async function buildTripsNative(
  * fails soft — a place that can't be named keeps its country-level label.
  */
 async function enrichPlaceNames(trips: InferredTrip[]): Promise<void> {
-  for (const trip of trips) {
-    for (const d of trip.destinations) {
-      try {
-        const r = await Photos.reverseGeocode({ lat: d.lat, lng: d.lng });
-        if (r.locality) d.city = r.locality;
-        else if (r.administrativeArea) d.city = r.administrativeArea;
-        if (r.countryCode) {
-          d.countryCode = r.countryCode.toUpperCase();
-          d.country = countryName(d.countryCode);
-        }
-      } catch {
-        /* keep country-level label */
-      }
-      await delay(120); // be gentle with the geocoder's rate limit
-    }
-    renameTrip(trip);
+  const pacer = createGeoPacer();
+  const all = trips.flatMap((t) => t.destinations);
+
+  for (const d of all) {
+    const g = await resolvePlace(pacer, d);
+    d.city = g.city;
+    d.country = g.country;
+    d.countryCode = g.countryCode;
   }
+
+  // Second chance for anything the geocoder throttled on the first pass. A brief
+  // cooldown lets CLGeocoder's per-minute window fully clear, then we retry the
+  // stragglers at a gentler pace so a long trip still ends up fully named.
+  const missing = all.filter((d) => !d.city);
+  if (missing.length > 0) {
+    await delay(5000);
+    pacer.spacing = 1100;
+    for (const d of missing) {
+      const g = await resolvePlace(pacer, d);
+      d.city = g.city;
+      d.country = g.country;
+      d.countryCode = g.countryCode;
+    }
+  }
+
+  for (const trip of trips) renameTrip(trip);
+}
+
+interface PlaceFields {
+  lat: number;
+  lng: number;
+  city: string;
+  country: string;
+  countryCode: string;
+}
+
+/** Reverse-geocodes a point and merges the result over the current labels. */
+async function resolvePlace(
+  pacer: GeoPacer,
+  d: PlaceFields
+): Promise<{ city: string; country: string; countryCode: string }> {
+  const r = await reverseGeocodeCached(pacer, d.lat, d.lng);
+  if (!r) return { city: d.city, country: d.country, countryCode: d.countryCode };
+  // Prefer the most specific human place name available, falling back from
+  // city → neighbourhood → district → region. Rural spots (a jungle, a
+  // coastline) often have no `locality` but do carry the coarser fields.
+  const name =
+    r.locality || r.subLocality || r.subAdministrativeArea || r.administrativeArea;
+  const countryCode = r.countryCode ? r.countryCode.toUpperCase() : d.countryCode;
+  return {
+    city: name || d.city,
+    countryCode,
+    country: r.countryCode ? countryName(countryCode) : d.country,
+  };
+}
+
+/**
+ * Self-tuning rate controller for CLGeocoder. The device geocoder allows only a
+ * limited burst before it hard-throttles (a transient error) for up to a minute.
+ * Rather than a fixed delay (too slow when free, too fast when throttled), we
+ * adapt: gently speed up after successes, and back off aggressively the moment a
+ * throttle appears so the per-minute window can clear before the next request.
+ */
+interface GeoPacer {
+  cache: Map<string, ReverseGeocodeResult | null>;
+  spacing: number; // ms to leave between network requests
+  last: number; // timestamp of the last request
+}
+
+function createGeoPacer(): GeoPacer {
+  return { cache: new Map(), spacing: 450, last: 0 };
+}
+
+async function reverseGeocodeCached(
+  pacer: GeoPacer,
+  lat: number,
+  lng: number
+): Promise<ReverseGeocodeResult | null> {
+  const key = `${lat.toFixed(2)},${lng.toFixed(2)}`;
+  const hit = pacer.cache.get(key);
+  if (hit !== undefined) return hit;
+
+  let result: ReverseGeocodeResult | null = null;
+  for (let attempt = 0; attempt < 6; attempt++) {
+    const since = Date.now() - pacer.last;
+    if (since < pacer.spacing) await delay(pacer.spacing - since);
+    pacer.last = Date.now();
+    try {
+      result = await Photos.reverseGeocode({ lat, lng });
+      // Success: ease the pace back up for the next request.
+      pacer.spacing = Math.max(400, pacer.spacing - 80);
+      break;
+    } catch {
+      // Throttled: slow down hard and wait out (most of) the window before retry.
+      pacer.spacing = Math.min(8000, Math.round(pacer.spacing * 1.9) + 500);
+      await delay(pacer.spacing);
+    }
+  }
+  pacer.cache.set(key, result);
+  return result;
+}
+
+/**
+ * Re-runs reverse geocoding over an EXISTING set of trips and returns a new
+ * trips array with refreshed city/country labels. Lets the user fix place names
+ * (e.g. after a geocoder improvement) without re-scanning their whole library.
+ * Native-only — on web the names come from the server import.
+ */
+export async function refreshPlaceNames(
+  trips: Trip[],
+  onProgress?: (done: number, total: number) => void
+): Promise<Trip[]> {
+  if (!isNativePlatform) return trips;
+  const pacer = createGeoPacer();
+  const total = trips.reduce((n, t) => n + t.destinations.length, 0);
+  let done = 0;
+
+  const out: Trip[] = [];
+  for (const trip of trips) {
+    const dests: Destination[] = [];
+    for (const d of trip.destinations) {
+      const g = await resolvePlace(pacer, d);
+      dests.push({ ...d, ...g });
+      done++;
+      onProgress?.(done, total);
+    }
+    out.push({ ...trip, destinations: dests });
+  }
+
+  // Second chance for any place the geocoder throttled, after a cooldown.
+  const missing = out.flatMap((t) => t.destinations).filter((d) => !d.city);
+  if (missing.length > 0) {
+    await delay(5000);
+    pacer.spacing = 1100;
+    for (const d of missing) {
+      const g = await resolvePlace(pacer, d);
+      d.city = g.city;
+      d.country = g.country;
+      d.countryCode = g.countryCode;
+    }
+  }
+  return out;
 }
 
 function toBuiltTrip(t: InferredTrip): BuiltTrip {
@@ -187,23 +312,53 @@ function serverPhotoUrl(ref: { directory: string; filename: string }, width: num
   return `/api/apple-photos/photo?dir=${encodeURIComponent(ref.directory)}&file=${encodeURIComponent(ref.filename)}&w=${width}`;
 }
 
+/**
+ * Width to request for the big featured photo. On native each thumbnail is a
+ * base64 data URL marshaled across the Capacitor bridge and decoded on the main
+ * thread, so an oversized image directly costs playback smoothness. The card is
+ * small, so a more modest size is plenty sharp while roughly halving the bridge
+ * payload, decode time, and memory vs. the 1400px web size.
+ */
+export const HERO_PHOTO_WIDTH = isNativePlatform ? 1024 : 1400;
+
+// Base64 thumbnails are large (a 1024px JPEG is ~0.5MB as a UTF-16 string), so an
+// unbounded cache steadily inflates memory until the GC stalls cause hitches.
+// Keep a bounded LRU of the most-recently-used thumbnails instead.
+const THUMB_CACHE_MAX = 48;
 const thumbCache = new Map<string, string>();
+
+function thumbCacheGet(key: string): string | undefined {
+  const v = thumbCache.get(key);
+  if (v !== undefined) {
+    thumbCache.delete(key); // re-insert to mark as most-recently-used
+    thumbCache.set(key, v);
+  }
+  return v;
+}
+
+function thumbCacheSet(key: string, val: string): void {
+  thumbCache.set(key, val);
+  if (thumbCache.size > THUMB_CACHE_MAX) {
+    const oldest = thumbCache.keys().next().value;
+    if (oldest !== undefined) thumbCache.delete(oldest);
+  }
+}
 
 /** A src that's available with no async work (server URL, or a cached blob). */
 function immediateSrc(ref: ServerPhotoRef, width: number): string | null {
   if (!isNativePlatform) return serverPhotoUrl(ref, width);
   const id = ref.localIdentifier ?? ref.uuid;
-  return thumbCache.get(`${id}:${width}`) ?? null;
+  return thumbCacheGet(`${id}:${width}`) ?? null;
 }
 
 export async function loadPhotoSrc(ref: ServerPhotoRef, width: number): Promise<string> {
   if (!isNativePlatform) return serverPhotoUrl(ref, width);
   const id = ref.localIdentifier ?? ref.uuid;
   const key = `${id}:${width}`;
-  const hit = thumbCache.get(key);
+  const hit = thumbCacheGet(key);
   if (hit) return hit;
   const { dataUrl } = await Photos.getThumbnail({ id, width });
-  thumbCache.set(key, dataUrl);
+  thumbCacheSet(key, dataUrl);
   return dataUrl;
 }
 

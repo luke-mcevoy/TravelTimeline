@@ -25,6 +25,10 @@ export type PhotoAccessStatus =
 export interface ReverseGeocodeResult {
   /** City / town, e.g. "Mykonos" ('' if unavailable). */
   locality: string;
+  /** Neighbourhood / sub-locality ('' if unavailable). */
+  subLocality: string;
+  /** County / district ('' if unavailable). */
+  subAdministrativeArea: string;
   /** State / region ('' if unavailable). */
   administrativeArea: string;
   /** ISO alpha-2 country code ('' if unavailable). */
@@ -39,6 +43,8 @@ export interface PhotosPlugin {
     lat: number;
     lng: number;
   }): Promise<ReverseGeocodeResult>;
+  /** Save a base64-encoded video into the device Photos library. */
+  saveVideo(options: { data: string; ext?: string }): Promise<{ saved: boolean }>;
 }
 
 export const Photos = registerPlugin<PhotosPlugin>('Photos');
