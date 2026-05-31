@@ -2,25 +2,16 @@ import { useState, useCallback, useEffect, useRef } from 'react';
 import { Camera, Loader2, Sparkles } from 'lucide-react';
 import { nanoid } from 'nanoid';
 import { useTripStore } from '@/stores/tripStore';
-import type { Trip, Destination, ServerPhotoRef } from '@/types';
+import type { Trip, Destination } from '@/types';
+import {
+  checkAccess as checkPhotoAccess,
+  buildTrips,
+  isNativePlatform,
+  type BuiltTrip,
+} from '@/services/photoSource';
 import styles from './ApplePhotosImport.module.css';
 
 type ImportState = 'idle' | 'checking' | 'ready' | 'importing' | 'error';
-
-interface ImportedTrip {
-  name: string;
-  destinations: Array<{
-    city: string;
-    country: string;
-    countryCode: string;
-    lat: number;
-    lng: number;
-    arrivalDate: string;
-    departureDate: string;
-    photoCount: number;
-    photos: ServerPhotoRef[];
-  }>;
-}
 
 const WINDOW_PRESETS = [
   { label: '1 yr', years: 1 },
@@ -46,28 +37,28 @@ export function ApplePhotosImport() {
   const checkAccess = useCallback(async (): Promise<boolean> => {
     setState('checking');
     setError('');
-    try {
-      const res = await fetch('/api/apple-photos/status');
-      const data = await res.json();
-      if (data.accessible) {
-        setState('ready');
-        return true;
-      }
-      setState('error');
-      setError(data.error || 'Cannot access Photos database');
-      return false;
-    } catch {
-      setState('error');
-      setError('Cannot reach server. Make sure the backend is running on port 3001.');
-      return false;
+    const access = await checkPhotoAccess();
+    if (access.accessible) {
+      setState('ready');
+      return true;
     }
+    setState('error');
+    setError(access.error || 'Cannot access your photo library');
+    return false;
   }, []);
 
-  // Seamless first run: if there are no trips yet, quietly check access and
-  // pop the builder open so the only thing left to do is pick a window + go.
+  // Seamless first run: if there are no trips yet, pop the builder open so the
+  // only thing left to do is pick a window + go. On native we open straight to
+  // the ready state (the OS permission prompt fires when they tap Build); on
+  // web we first confirm the backend can see the Photos library.
   useEffect(() => {
     if (autoOpenedRef.current || existingTrips.length > 0) return;
     autoOpenedRef.current = true;
+    if (isNativePlatform) {
+      setShowModal(true);
+      setState('ready');
+      return;
+    }
     (async () => {
       try {
         const res = await fetch('/api/apple-photos/status');
@@ -84,10 +75,14 @@ export function ApplePhotosImport() {
 
   const handleOpen = useCallback(() => {
     setShowModal(true);
-    checkAccess();
+    if (isNativePlatform) {
+      setState('ready');
+    } else {
+      checkAccess();
+    }
   }, [checkAccess]);
 
-  const applyAndPlay = (importedTrips: ImportedTrip[]) => {
+  const applyAndPlay = (importedTrips: BuiltTrip[]) => {
     if (importedTrips.length === 0) {
       setState('error');
       setError('No trips found in this time window. Try widening it.');
@@ -132,42 +127,19 @@ export function ApplePhotosImport() {
     setProgressPct(0);
 
     try {
-      const res = await fetch('/api/apple-photos/import', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ yearsBack }),
-      });
-
-      const reader = res.body?.getReader();
-      const decoder = new TextDecoder();
-      if (!reader) throw new Error('No response stream');
-
-      let done = false;
-      while (!done) {
-        const { value, done: streamDone } = await reader.read();
-        done = streamDone;
-        if (value) {
-          const text = decoder.decode(value, { stream: true });
-          const lines = text.split('\n');
-          for (const line of lines) {
-            if (!line.startsWith('data: ')) continue;
-            try {
-              const data = JSON.parse(line.slice(6));
-              if (data.type === 'progress') {
-                setProgressMsg(data.message);
-                setProgressPct(data.pct);
-              } else if (data.type === 'complete') {
-                applyAndPlay(data.trips as ImportedTrip[]);
-              } else if (data.type === 'error') {
-                throw new Error(data.message);
-              }
-            } catch (e) {
-              if (e instanceof SyntaxError) continue;
-              throw e;
-            }
-          }
-        }
+      // On native this triggers the OS photo-permission prompt the first time.
+      const access = await checkPhotoAccess();
+      if (!access.accessible) {
+        setState('error');
+        setError(access.error || 'Cannot access your photo library');
+        return;
       }
+
+      const trips = await buildTrips(yearsBack, (message, pct) => {
+        setProgressMsg(message);
+        setProgressPct(pct);
+      });
+      applyAndPlay(trips);
     } catch (err) {
       setState('error');
       setError(err instanceof Error ? err.message : 'Import failed');
@@ -224,7 +196,8 @@ export function ApplePhotosImport() {
                   </div>
                 </div>
                 <div className={styles.permissionNote}>
-                  Everything runs locally on your Mac — no photos are uploaded anywhere.
+                  Everything runs locally on your {isNativePlatform ? 'phone' : 'Mac'} — no photos
+                  are uploaded anywhere.
                 </div>
               </>
             )}

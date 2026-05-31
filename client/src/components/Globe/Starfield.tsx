@@ -99,7 +99,7 @@ const STAR_FRAGMENT_SHADER = /* glsl */ `
     float d = length(gl_PointCoord - 0.5) * 2.0;
     float core = smoothstep(0.55, 0.0, d);
     float glow = pow(max(1.0 - d, 0.0), 2.2);
-    float a = core * 0.85 + glow * 0.45;
+    float a = core * 1.05 + glow * 0.6;
     if (a < 0.01) discard;
     gl_FragColor = vec4(vColor * vBright, a);
   }
@@ -127,8 +127,8 @@ function buildStarPoints(catalog: StarCatalog, pixelRatio: number): THREE.Points
 
     // Brightness factor: 0 (faint) .. 1 (brightest naked-eye).
     const t = Math.max(0, Math.min(1, (MAG_LIMIT - mag) / 8.0));
-    const sizePx = 1.0 + 7.5 * t * t; // faint ~1px, brightest ~8.5px
-    const intensity = 0.4 + 0.6 * Math.pow(t, 1.2);
+    const sizePx = 1.6 + 9.0 * t * t; // faint ~1.6px, brightest ~10.5px
+    const intensity = 0.62 + 0.7 * Math.pow(t, 1.1);
     sizes[i] = sizePx;
 
     const [r, g, b] = tempToRgb(bvToTemp(bv));
@@ -153,7 +153,7 @@ function buildStarPoints(catalog: StarCatalog, pixelRatio: number): THREE.Points
     uniforms: {
       uTime: { value: 0 },
       uPixelRatio: { value: pixelRatio },
-      uSizeScale: { value: 1 },
+      uSizeScale: { value: 1.18 },
     },
     vertexShader: STAR_VERTEX_SHADER,
     fragmentShader: STAR_FRAGMENT_SHADER,

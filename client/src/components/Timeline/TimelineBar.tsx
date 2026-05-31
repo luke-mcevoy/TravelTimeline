@@ -108,21 +108,11 @@ export function TimelineBar() {
 
   if (totalDests < 2) return null;
 
-  const currentDest = destinations[animation.currentDestinationIndex];
   void trips;
 
   return (
     <div className={styles.wrapper}>
       <div className={styles.bar}>
-        {currentDest && (
-          <div className={styles.destLabel}>
-            <span className={styles.destCity}>
-              {currentDest.city}, {currentDest.country}
-            </span>
-            <span className={styles.destDate}>{currentDest.arrivalDate}</span>
-          </div>
-        )}
-
         <div className={styles.controls}>
           <button onClick={handleReset} className={styles.resetButton} title="Reset">
             <RotateCcw className={styles.resetIcon} />

@@ -3,6 +3,8 @@ export interface ServerPhotoRef {
   filename: string;
   directory: string;
   dateTaken: string;
+  /** PhotoKit localIdentifier — present on the native (iOS) build only. */
+  localIdentifier?: string;
 }
 
 export interface Destination {

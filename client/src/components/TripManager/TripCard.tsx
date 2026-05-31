@@ -1,13 +1,9 @@
-import { useState, useRef, useCallback } from 'react';
-import { ChevronDown, ChevronRight, Plus, Trash2, Pencil, Check, X, Image } from 'lucide-react';
+import { useState, useRef } from 'react';
+import { ChevronDown, ChevronRight, Trash2, Pencil, Check, X } from 'lucide-react';
 import clsx from 'clsx';
-import type { Trip, Destination } from '@/types';
+import type { Trip } from '@/types';
 import { useTripStore } from '@/stores/tripStore';
-import { CitySearch } from './CitySearch';
 import { DestinationItem } from './DestinationItem';
-import { PhotoUpload } from './PhotoUpload';
-import { PhotoGallery } from './PhotoGallery';
-import type { GeocodingResult } from '@/utils/geocoding';
 import styles from './TripCard.module.css';
 
 interface TripCardProps {
@@ -19,16 +15,12 @@ export function TripCard({ trip, isSelected }: TripCardProps) {
   const [isExpanded, setIsExpanded] = useState(isSelected);
   const [isEditing, setIsEditing] = useState(false);
   const [editName, setEditName] = useState(trip.name);
-  const [showAddDest, setShowAddDest] = useState(false);
-  const [showPhotos, setShowPhotos] = useState(false);
-  const [photoRefreshKey, setPhotoRefreshKey] = useState(0);
   const dragIndexRef = useRef<number | null>(null);
 
   const {
     selectTrip,
     updateTrip,
     deleteTrip,
-    addDestination,
     updateDestination,
     removeDestination,
     reorderDestinations,
@@ -46,21 +38,6 @@ export function TripCard({ trip, isSelected }: TripCardProps) {
     setIsEditing(false);
   };
 
-  const handleAddCity = (result: GeocodingResult) => {
-    const today = new Date().toISOString().slice(0, 10);
-    const dest: Omit<Destination, 'id'> = {
-      city: result.city || result.displayName.split(',')[0],
-      country: result.country,
-      countryCode: result.countryCode,
-      lat: result.lat,
-      lng: result.lng,
-      arrivalDate: today,
-      departureDate: today,
-    };
-    addDestination(trip.id, dest);
-    setShowAddDest(false);
-  };
-
   const handleDragStart = (index: number) => {
     dragIndexRef.current = index;
   };
@@ -74,10 +51,6 @@ export function TripCard({ trip, isSelected }: TripCardProps) {
   const handleDragEnd = () => {
     dragIndexRef.current = null;
   };
-
-  const handlePhotosAdded = useCallback(() => {
-    setPhotoRefreshKey((k) => k + 1);
-  }, []);
 
   return (
     <div className={clsx(styles.card, isSelected && styles.cardSelected)}>
@@ -143,42 +116,6 @@ export function TripCard({ trip, isSelected }: TripCardProps) {
               onDragEnd={handleDragEnd}
             />
           ))}
-
-          {showAddDest ? (
-            <div className={styles.addDestWrapper}>
-              <CitySearch onSelect={handleAddCity} />
-              <button onClick={() => setShowAddDest(false)} className={styles.addDestCancel}>
-                Cancel
-              </button>
-            </div>
-          ) : (
-            <button onClick={() => setShowAddDest(true)} className={styles.addDestButton}>
-              <Plus className={styles.addDestIcon} />
-              Add Destination
-            </button>
-          )}
-
-          {trip.destinations.length > 0 && (
-            <div className={styles.photosSection}>
-              <button
-                onClick={() => setShowPhotos(!showPhotos)}
-                className={styles.photosToggle}
-              >
-                <Image className={styles.photosToggleIcon} />
-                Photos
-              </button>
-              {showPhotos && (
-                <div className={styles.photosContent}>
-                  <PhotoUpload
-                    tripId={trip.id}
-                    destinations={trip.destinations}
-                    onPhotosAdded={handlePhotosAdded}
-                  />
-                  <PhotoGallery tripId={trip.id} refreshKey={photoRefreshKey} />
-                </div>
-              )}
-            </div>
-          )}
         </div>
       )}
     </div>

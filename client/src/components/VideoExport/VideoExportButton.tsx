@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Video, Download, X, Loader2 } from 'lucide-react';
 import { useTripStore } from '@/stores/tripStore';
+import { isNativePlatform } from '@/services/photoSource';
 import styles from './VideoExportButton.module.css';
 
 type ExportState = 'idle' | 'rendering' | 'done' | 'error';
@@ -14,6 +15,10 @@ export function VideoExportButton() {
 
   const destinations = getSortedDestinations();
   const canExport = destinations.length >= 2;
+
+  // Video export depends on the Mac server (Puppeteer + FFmpeg); on the native
+  // build it's deferred until an on-device AVFoundation exporter exists.
+  if (isNativePlatform) return null;
 
   const handleExport = async () => {
     if (!canExport) return;

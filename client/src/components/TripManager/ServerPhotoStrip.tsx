@@ -2,14 +2,33 @@ import { useState } from 'react';
 import { X, ChevronLeft, ChevronRight } from 'lucide-react';
 import clsx from 'clsx';
 import type { ServerPhotoRef } from '@/types';
+import { usePhotoSrc } from '@/services/photoSource';
 import styles from './ServerPhotoStrip.module.css';
 
 interface ServerPhotoStripProps {
   photos: ServerPhotoRef[];
 }
 
-function thumbUrl(photo: ServerPhotoRef, width = 400): string {
-  return `/api/apple-photos/photo?dir=${encodeURIComponent(photo.directory)}&file=${encodeURIComponent(photo.filename)}&w=${width}`;
+function Thumb({ photo, onClick }: { photo: ServerPhotoRef; onClick: () => void }) {
+  const src = usePhotoSrc(photo, 100);
+  return (
+    <button className={styles.thumb} onClick={onClick}>
+      <img
+        src={src ?? undefined}
+        alt=""
+        className={styles.thumbImage}
+        loading="lazy"
+        onError={(e) => {
+          (e.target as HTMLImageElement).className = styles.thumbError;
+        }}
+      />
+    </button>
+  );
+}
+
+function LightboxImage({ photo }: { photo: ServerPhotoRef }) {
+  const src = usePhotoSrc(photo, 1200);
+  return <img src={src ?? undefined} alt="" className={styles.lightboxImage} />;
 }
 
 export function ServerPhotoStrip({ photos }: ServerPhotoStripProps) {
@@ -32,21 +51,7 @@ export function ServerPhotoStrip({ photos }: ServerPhotoStripProps) {
     <>
       <div className={styles.strip}>
         {visible.map((photo, i) => (
-          <button
-            key={photo.uuid}
-            className={styles.thumb}
-            onClick={() => setViewingIndex(i)}
-          >
-            <img
-              src={thumbUrl(photo, 100)}
-              alt=""
-              className={styles.thumbImage}
-              loading="lazy"
-              onError={(e) => {
-                (e.target as HTMLImageElement).className = styles.thumbError;
-              }}
-            />
-          </button>
+          <Thumb key={photo.uuid} photo={photo} onClick={() => setViewingIndex(i)} />
         ))}
         {remaining > 0 && (
           <button
@@ -86,11 +91,7 @@ export function ServerPhotoStrip({ photos }: ServerPhotoStripProps) {
           )}
 
           <div className={styles.lightboxContent}>
-            <img
-              src={thumbUrl(photos[viewingIndex], 1200)}
-              alt=""
-              className={styles.lightboxImage}
-            />
+            <LightboxImage photo={photos[viewingIndex]} />
             <p className={styles.lightboxCaption}>
               {photos[viewingIndex].dateTaken} &middot;{' '}
               {viewingIndex + 1} / {photos.length}

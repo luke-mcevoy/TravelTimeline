@@ -1,8 +1,8 @@
 import { useState, useRef } from 'react';
+import { isNativePlatform } from '@/services/photoSource';
 import {
   PanelLeftClose,
   PanelLeftOpen,
-  Plus,
   Download,
   Upload,
   Globe2,
@@ -16,14 +16,13 @@ import { ApplePhotosImport } from './ApplePhotosImport';
 import styles from './TripPanel.module.css';
 
 export function TripPanel() {
-  const [isOpen, setIsOpen] = useState(true);
-  const [isCreating, setIsCreating] = useState(false);
-  const [newTripName, setNewTripName] = useState('');
+  // On phones the panel covers the whole globe, so start it collapsed; on the
+  // web it sits as a sidebar alongside the globe, so start it open.
+  const [isOpen, setIsOpen] = useState(!isNativePlatform);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const trips = useTripStore((s) => s.trips);
   const selectedTripId = useTripStore((s) => s.selectedTripId);
-  const addTrip = useTripStore((s) => s.addTrip);
   const setTrips = useTripStore((s) => s.setTrips);
   const selectTrip = useTripStore((s) => s.selectTrip);
   const resetAnimation = useTripStore((s) => s.resetAnimation);
@@ -38,14 +37,6 @@ export function TripPanel() {
     selectTrip(null);
     resetAnimation();
     await clearAllPhotos().catch(() => {});
-  };
-
-  const handleCreateTrip = () => {
-    if (newTripName.trim()) {
-      addTrip(newTripName.trim());
-      setNewTripName('');
-      setIsCreating(false);
-    }
   };
 
   const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -83,10 +74,6 @@ export function TripPanel() {
       </div>
 
       <div className={styles.actions}>
-        <button onClick={() => setIsCreating(true)} className={styles.newTripButton}>
-          <Plus className={styles.newTripButtonIcon} />
-          New Trip
-        </button>
         <ApplePhotosImport />
         <div className={styles.actionsSpacer} />
         <button
@@ -121,37 +108,12 @@ export function TripPanel() {
       </div>
 
       <div className={styles.tripList}>
-        {isCreating && (
-          <div className={styles.createForm}>
-            <input
-              type="text"
-              value={newTripName}
-              onChange={(e) => setNewTripName(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && handleCreateTrip()}
-              placeholder="Trip name (e.g. Europe 2025)"
-              autoFocus
-              className={styles.createInput}
-            />
-            <div className={styles.createActions}>
-              <button onClick={handleCreateTrip} className={styles.createSubmit}>
-                Create
-              </button>
-              <button
-                onClick={() => { setIsCreating(false); setNewTripName(''); }}
-                className={styles.createCancel}
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        )}
-
-        {trips.length === 0 && !isCreating ? (
+        {trips.length === 0 ? (
           <div className={styles.emptyState}>
             <Globe2 className={styles.emptyIcon} />
             <p className={styles.emptyTitle}>No trips yet</p>
             <p className={styles.emptySubtitle}>
-              Create a trip to start mapping your travels
+              Connect Apple Photos to build your travel story automatically
             </p>
           </div>
         ) : (

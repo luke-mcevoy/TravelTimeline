@@ -1,0 +1,345 @@
+@reference "tailwindcss";
+
+/* ── Trigger pill (top-right HUD) ─────────────────────────── */
+
+.trigger {
+  @apply absolute z-10 flex items-center gap-2 transition-all;
+  /* Sit just below the stats bar (right side) so a wide distance value can't
+     collide with it. Mirrors the trip-panel toggle on the left. */
+  top: calc(var(--safe-top) + 58px);
+  right: calc(var(--safe-right) + 12px);
+  padding: 7px 12px;
+  border-radius: 999px;
+  background: rgba(6, 11, 18, 0.72);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(56, 225, 255, 0.28);
+  box-shadow: 0 0 18px rgba(56, 225, 255, 0.12);
+  cursor: pointer;
+}
+
+.trigger:hover {
+  border-color: rgba(56, 225, 255, 0.55);
+  background: rgba(56, 225, 255, 0.12);
+}
+
+.triggerIcon {
+  @apply h-4 w-4;
+  color: var(--color-cyan);
+  filter: drop-shadow(0 0 6px rgba(56, 225, 255, 0.5));
+  transform: rotate(45deg);
+}
+
+.triggerText {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--color-text);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Full-screen flyby overlay ────────────────────────────── */
+
+.backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: calc(var(--safe-top) + 16px) 20px calc(var(--safe-bottom) + 16px);
+  background: radial-gradient(
+      ellipse 80% 60% at 50% 45%,
+      rgba(8, 16, 26, 0.82),
+      rgba(2, 4, 9, 0.96)
+    );
+  backdrop-filter: blur(14px);
+  animation: atw-fade 0.3s ease;
+}
+
+@keyframes atw-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.panel {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  max-width: 420px;
+  text-align: center;
+}
+
+.closeBtn {
+  @apply absolute flex items-center justify-center text-white transition-all;
+  top: -4px;
+  right: -4px;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: rgba(5, 11, 18, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  opacity: 0.7;
+  cursor: pointer;
+}
+
+.closeBtn:hover {
+  opacity: 1;
+  background: rgba(56, 225, 255, 0.2);
+}
+
+.kicker {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.26em;
+  text-transform: uppercase;
+  color: var(--color-text-dim);
+}
+
+.kmRow {
+  margin-top: 6px;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 30px;
+  font-weight: 600;
+  color: #eaf6ff;
+  text-shadow: 0 0 18px rgba(56, 225, 255, 0.35);
+}
+
+.kmUnit {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--color-text-dim);
+  letter-spacing: 0.12em;
+}
+
+/* ── Orbit stage ── */
+
+.stage {
+  position: relative;
+  width: 320px;
+  height: 320px;
+  max-width: 86vw;
+  max-height: 86vw;
+  margin: 8px 0;
+}
+
+.ring {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 2;
+  overflow: visible;
+}
+
+.globe {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 150px;
+  height: 150px;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  z-index: 3;
+  background-image: url('/earth-day-8k.jpg');
+  background-size: cover;
+  background-position: 0% 50%;
+  box-shadow:
+    inset -22px -14px 48px rgba(0, 0, 0, 0.75),
+    inset 16px 10px 30px rgba(120, 190, 255, 0.18),
+    0 0 50px rgba(56, 225, 255, 0.28);
+  animation: atw-spin 14s linear infinite;
+}
+
+/* Atmosphere bloom ring just outside the globe */
+.glow {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 168px;
+  height: 168px;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  z-index: 2;
+  pointer-events: none;
+  box-shadow: 0 0 40px 6px rgba(56, 225, 255, 0.18);
+  border: 1px solid rgba(56, 225, 255, 0.12);
+}
+
+@keyframes atw-spin {
+  from { background-position: 0% 50%; }
+  to { background-position: 100% 50%; }
+}
+
+.plane {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  z-index: 4;
+  pointer-events: none;
+  will-change: transform;
+}
+
+.planeIcon {
+  color: #ffffff;
+  filter: drop-shadow(0 0 8px rgba(56, 225, 255, 0.9))
+    drop-shadow(0 0 16px rgba(56, 225, 255, 0.5));
+}
+
+/* ── Moon-leg stage (Earth → Moon trajectory) ── */
+
+.moonEarth {
+  position: absolute;
+  width: 64px;
+  height: 64px;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  z-index: 3;
+  background-image: url('/earth-day-8k.jpg');
+  background-size: cover;
+  background-position: 0% 50%;
+  box-shadow:
+    inset -10px -6px 22px rgba(0, 0, 0, 0.75),
+    inset 7px 5px 14px rgba(120, 190, 255, 0.18),
+    0 0 28px rgba(56, 225, 255, 0.3);
+  animation: atw-spin 14s linear infinite;
+}
+
+.moon {
+  position: absolute;
+  width: 46px;
+  height: 46px;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  z-index: 3;
+  background:
+    radial-gradient(circle at 36% 32%, #f3f5f8 0%, #c8ccd4 42%, #8d93a0 78%, #6b7180 100%);
+  box-shadow:
+    inset -8px -5px 16px rgba(0, 0, 0, 0.55),
+    inset 5px 4px 10px rgba(255, 255, 255, 0.25),
+    0 0 26px rgba(180, 200, 230, 0.35);
+}
+
+/* a couple of soft craters for character */
+.moon::before,
+.moon::after {
+  content: '';
+  position: absolute;
+  border-radius: 50%;
+  background: rgba(90, 96, 110, 0.5);
+  box-shadow: inset 1px 1px 2px rgba(0, 0, 0, 0.4);
+}
+
+.moon::before {
+  width: 9px;
+  height: 9px;
+  top: 28%;
+  left: 30%;
+}
+
+.moon::after {
+  width: 6px;
+  height: 6px;
+  top: 56%;
+  left: 56%;
+}
+
+.rocket {
+  position: absolute;
+  z-index: 4;
+  pointer-events: none;
+  will-change: transform, left, top;
+}
+
+.rocketIcon {
+  color: #ffffff;
+  filter: drop-shadow(0 0 8px rgba(56, 225, 255, 0.95))
+    drop-shadow(0 0 16px rgba(56, 225, 255, 0.55));
+}
+
+/* ── Lap readout ── */
+
+.lapsRow {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 2px;
+  line-height: 1;
+}
+
+.lapsNum {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 64px;
+  font-weight: 700;
+  color: #ffffff;
+  text-shadow: 0 0 26px rgba(56, 225, 255, 0.55);
+}
+
+.lapsX {
+  font-size: 34px;
+  font-weight: 600;
+  color: var(--color-cyan);
+  text-shadow: 0 0 18px rgba(56, 225, 255, 0.6);
+}
+
+.lapsLabel {
+  margin-top: 4px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--color-text-dim);
+}
+
+/* ── Actions ── */
+
+.actions {
+  margin-top: 22px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  animation: atw-fade 0.4s ease;
+}
+
+.replayBtn,
+.doneBtn {
+  @apply flex items-center gap-2 transition-all;
+  padding: 9px 18px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.replayBtn {
+  color: var(--color-cyan);
+  background: rgba(56, 225, 255, 0.08);
+  border: 1px solid rgba(56, 225, 255, 0.3);
+}
+
+.replayBtn:hover {
+  background: rgba(56, 225, 255, 0.18);
+  border-color: rgba(56, 225, 255, 0.55);
+}
+
+.doneBtn {
+  color: #04101a;
+  font-weight: 600;
+  background: linear-gradient(135deg, var(--color-cyan-soft), var(--color-cyan));
+  border: 1px solid transparent;
+}
+
+.doneBtn:hover {
+  box-shadow: 0 0 20px rgba(56, 225, 255, 0.5);
+}

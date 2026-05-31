@@ -4,6 +4,10 @@ import { totalDistance, uniqueCountries, uniqueCities } from '@/utils/animation'
 import styles from './StatsBar.module.css';
 
 export function StatsBar() {
+  // Subscribe to `trips` so the bar re-renders when a story is imported.
+  // (getSortedDestinations is a stable store method, so selecting only it
+  // would leave this component frozen on its initial empty render.)
+  const trips = useTripStore((s) => s.trips);
   const getSortedDestinations = useTripStore((s) => s.getSortedDestinations);
   const destinations = getSortedDestinations();
 
@@ -12,7 +16,7 @@ export function StatsBar() {
   const countries = uniqueCountries(destinations);
   const cities = uniqueCities(destinations);
   const distance = totalDistance(destinations);
-  const tripCount = new Set(destinations.map((d) => d.tripId)).size;
+  const tripCount = trips.length;
 
   const formatDistance = (km: number) => {
     if (km < 1000) return `${Math.round(km)} km`;

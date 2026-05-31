@@ -1,10 +1,11 @@
-import puppeteer from 'puppeteer';
+import puppeteer, { type Browser } from 'puppeteer';
 import ffmpegStatic from 'ffmpeg-static';
-import { spawn } from 'child_process';
-import { mkdtemp, rm, writeFile } from 'fs/promises';
+import { spawn, type ChildProcessWithoutNullStreams } from 'child_process';
+import { mkdtemp, rm, readFile } from 'fs/promises';
 import { existsSync } from 'fs';
 import { join } from 'path';
 import { tmpdir } from 'os';
+import type { Writable } from 'stream';
 
 /**
  * Finds a Chrome/Chromium to drive. Puppeteer's own browser download is often
@@ -84,7 +85,91 @@ export interface RenderOptions {
   clientUrl?: string;
 }
 
+/** Common Chrome flags shared by both the GPU and software render paths. */
+function baseArgs(width: number, height: number): string[] {
+  return [
+    `--window-size=${width},${height}`,
+    '--no-sandbox',
+    '--disable-setuid-sandbox',
+    '--ignore-gpu-blocklist',
+    // Avoid renderer crashes from a too-small /dev/shm during long captures.
+    '--disable-dev-shm-usage',
+    '--hide-scrollbars',
+    '--mute-audio',
+  ];
+}
+
+/**
+ * Hardware-accelerated path. On Apple Silicon, Chrome's ANGLE backend drives
+ * the real Metal GPU here, which renders the heavy 8k-texture globe roughly an
+ * order of magnitude faster than software WebGL.
+ */
+function gpuArgs(width: number, height: number): string[] {
+  return [...baseArgs(width, height), '--enable-gpu'];
+}
+
+/**
+ * Software fallback path. Forces SwiftShader so WebGL still initializes when no
+ * usable GPU is available (e.g. headless Linux/CI). Recent Chrome refuses
+ * software WebGL unless explicitly allowed — without these flags the WebGL
+ * context never initializes and the tab crashes ("frame got detached").
+ */
+function softwareArgs(width: number, height: number): string[] {
+  return [
+    ...baseArgs(width, height),
+    '--enable-unsafe-swiftshader',
+    '--use-gl=angle',
+    '--use-angle=swiftshader',
+  ];
+}
+
+/**
+ * A render produced via a working WebGL context contains the globe and is a
+ * fairly large image. A failed/blank context yields a near-uniform dark frame
+ * that compresses to only a few KB. We use a generous PNG-size threshold to
+ * detect the blank case and trigger the software fallback.
+ */
+const BLANK_FRAME_PNG_BYTES = 30_000;
+
 export async function renderVideo(
+  options: RenderOptions,
+  onProgress?: (pct: number) => void
+): Promise<Buffer> {
+  const { destinations, width = 1920, height = 1080 } = options;
+
+  if (destinations.length < 2) {
+    throw new Error('Need at least 2 destinations to render a video');
+  }
+
+  // Escape hatch for environments without a usable GPU (CI, some servers) or
+  // for debugging: skip straight to software rendering.
+  if (process.env.RENDER_FORCE_SOFTWARE === '1') {
+    return await renderWithArgs(softwareArgs(width, height), 'software', options, onProgress);
+  }
+
+  // Try the fast GPU path first. If the WebGL context fails to initialize or
+  // renders blank frames, retry with software rendering so we never regress to
+  // a broken/blank video.
+  try {
+    return await renderWithArgs(gpuArgs(width, height), 'gpu', options, onProgress);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.warn(
+      `[renderer] GPU render path failed (${message}); falling back to software WebGL.`
+    );
+    return await renderWithArgs(softwareArgs(width, height), 'software', options, onProgress);
+  }
+}
+
+/**
+ * Performs a full render with a given set of Chrome flags. Frames are captured
+ * as JPEG and streamed straight into FFmpeg's stdin (no thousands of PNGs on
+ * disk). Throws if the WebGL context appears non-functional so the caller can
+ * fall back to software rendering.
+ */
+async function renderWithArgs(
+  args: string[],
+  label: 'gpu' | 'software',
   options: RenderOptions,
   onProgress?: (pct: number) => void
 ): Promise<Buffer> {
@@ -97,39 +182,32 @@ export async function renderVideo(
     clientUrl = 'http://localhost:5173/render',
   } = options;
 
-  if (destinations.length < 2) {
-    throw new Error('Need at least 2 destinations to render a video');
-  }
+  const framesPerTransition = Math.round((transitionMs / 1000) * fps);
+  const startHold = Math.round(fps / 2);
+  const endHold = fps;
+  const totalFrames = startHold + (destinations.length - 1) * framesPerTransition + endHold;
 
   const tmpDir = await mkdtemp(join(tmpdir(), 'tt-render-'));
-  const framesDir = join(tmpDir, 'frames');
-  await writeFile(join(framesDir, '.keep'), '', { recursive: true } as never).catch(() => null);
-  const { mkdir } = await import('fs/promises');
-  await mkdir(framesDir, { recursive: true });
+  const outputPath = join(tmpDir, 'output.mp4');
 
-  const browser = await puppeteer.launch({
-    headless: true,
-    executablePath: resolveChromeExecutable(),
-    args: [
-      `--window-size=${width},${height}`,
-      '--no-sandbox',
-      '--disable-setuid-sandbox',
-      // The globe is WebGL. In headless Chrome there's no real GPU, so we must
-      // render through software (SwiftShader). Recent Chrome refuses software
-      // WebGL unless explicitly allowed — without these flags the WebGL context
-      // never initializes and the tab crashes ("frame got detached").
-      '--enable-unsafe-swiftshader',
-      '--use-gl=angle',
-      '--use-angle=swiftshader',
-      '--ignore-gpu-blocklist',
-      // Avoid renderer crashes from a too-small /dev/shm during long captures.
-      '--disable-dev-shm-usage',
-    ],
-  });
+  let browser: Browser | null = null;
+  let ffmpeg: ChildProcessWithoutNullStreams | null = null;
 
   try {
+    browser = await puppeteer.launch({
+      headless: true,
+      executablePath: resolveChromeExecutable(),
+      args,
+    });
+
     const page = await browser.newPage();
     await page.setViewport({ width, height });
+
+    // Surface renderer crashes instead of hanging until a timeout.
+    let pageCrashed: string | null = null;
+    page.on('error', (e) => {
+      pageCrashed = e.message;
+    });
 
     // Inject render data before navigating (runs in browser context)
     await page.evaluateOnNewDocument(
@@ -146,30 +224,74 @@ export async function renderVideo(
 
     await page.goto(clientUrl, { waitUntil: 'networkidle0', timeout: 30000 });
 
-    // Wait for globe to be ready
-    await page.waitForFunction('window.__GLOBE_READY__ === true', {
-      timeout: 30000,
-    });
+    // Wait for globe to be ready (WebGL context + textures loaded)
+    await page.waitForFunction('window.__GLOBE_READY__ === true', { timeout: 30000 });
 
-    // Extra time for WebGL to settle
-    await new Promise((r) => setTimeout(r, 1000));
-
-    const framesPerTransition = Math.round((transitionMs / 1000) * fps);
-    const totalFrames = (destinations.length - 1) * framesPerTransition + fps; // +1sec hold at end
-    let frameNum = 0;
-
-    // Capture first destination
-    for (let f = 0; f < Math.round(fps / 2); f++) {
-      const padded = String(frameNum++).padStart(6, '0');
-      await page.screenshot({
-        path: join(framesDir, `frame_${padded}.png`),
-        type: 'png',
-      });
+    if (pageCrashed) {
+      throw new Error(`Renderer crashed during init: ${pageCrashed}`);
     }
 
-    // Advance through each destination
+    // Wait for the page's deterministic "first frame painted" signal rather
+    // than a fixed wall-clock sleep.
+    await page
+      .waitForFunction('window.__FRAME_READY__ === true', { timeout: 10000 })
+      .catch(() => {});
+
+    // Blank-render guard: if the WebGL context silently failed, the frame is a
+    // near-uniform dark image that compresses tiny. Bail so we can fall back.
+    const probe = (await page.screenshot({ type: 'png' })) as Buffer;
+    if (probe.length < BLANK_FRAME_PNG_BYTES) {
+      throw new Error(
+        `Render appears blank (${probe.length} bytes), WebGL likely non-functional`
+      );
+    }
+
+    // Start FFmpeg reading JPEG frames from stdin (image2pipe). Encoding runs
+    // concurrently with capture, and we avoid writing any intermediate PNGs.
+    ffmpeg = spawn(resolveFfmpeg(), [
+      '-y',
+      '-f', 'image2pipe',
+      '-framerate', String(fps),
+      '-i', 'pipe:0',
+      '-an',
+      '-c:v', 'libx264',
+      '-pix_fmt', 'yuv420p',
+      '-preset', 'veryfast',
+      '-crf', '23',
+      '-movflags', '+faststart',
+      outputPath,
+    ]);
+
+    let ffmpegStderr = '';
+    ffmpeg.stderr.on('data', (d: Buffer) => {
+      ffmpegStderr += d.toString();
+    });
+    const ffmpegDone = new Promise<void>((resolve, reject) => {
+      ffmpeg!.on('close', (code) => {
+        if (code === 0) resolve();
+        else reject(new Error(`FFmpeg exited with code ${code}: ${ffmpegStderr.slice(-500)}`));
+      });
+      ffmpeg!.on('error', (e) => reject(new Error(`Failed to spawn FFmpeg: ${e.message}`)));
+    });
+    // Don't let an FFmpeg-side error crash the process via an unhandled EPIPE.
+    ffmpeg.stdin.on('error', () => {});
+
+    let frameNum = 0;
+    const captureFrame = async () => {
+      const jpeg = (await page.screenshot({ type: 'jpeg', quality: 90 })) as Buffer;
+      await writeToStream(ffmpeg!.stdin, jpeg);
+      frameNum++;
+      if (onProgress && frameNum % 5 === 0) {
+        // Reserve the top 10% for FFmpeg flush/finalize.
+        onProgress(Math.min(90, Math.round((frameNum / totalFrames) * 90)));
+      }
+    };
+
+    // Hold on the first destination.
+    for (let f = 0; f < startHold; f++) await captureFrame();
+
+    // Advance through each subsequent destination.
     for (let i = 1; i < destinations.length; i++) {
-      // Reset frame-ready flag and advance
       await page.evaluate(() => {
         /* eslint-disable @typescript-eslint/no-explicit-any */
         (window as any).__FRAME_READY__ = false;
@@ -177,98 +299,58 @@ export async function renderVideo(
         if (fn) fn();
       });
 
-      // Wait for frame to be ready
-      await page.waitForFunction('window.__FRAME_READY__ === true', {
-        timeout: 10000,
-      });
+      // Wait on the deterministic frame-painted signal (camera jump + visuals
+      // updated) instead of a fixed settle delay.
+      await page.waitForFunction('window.__FRAME_READY__ === true', { timeout: 10000 });
 
-      // Wait for the camera to finish moving
-      await new Promise((r) => setTimeout(r, 200));
+      if (pageCrashed) throw new Error(`Renderer crashed mid-capture: ${pageCrashed}`);
 
-      // Capture multiple frames at this position
-      for (let f = 0; f < framesPerTransition; f++) {
-        const padded = String(frameNum++).padStart(6, '0');
-        await page.screenshot({
-          path: join(framesDir, `frame_${padded}.png`),
-          type: 'png',
-        });
-      }
-
-      if (onProgress) {
-        onProgress(Math.round((i / destinations.length) * 80));
-      }
+      for (let f = 0; f < framesPerTransition; f++) await captureFrame();
     }
 
-    // Hold last frame for 1 second
-    for (let f = 0; f < fps; f++) {
-      const padded = String(frameNum++).padStart(6, '0');
-      await page.screenshot({
-        path: join(framesDir, `frame_${padded}.png`),
-        type: 'png',
-      });
-    }
+    // Hold the final frame.
+    for (let f = 0; f < endHold; f++) await captureFrame();
 
-    await browser.close();
-
-    if (onProgress) onProgress(85);
-
-    // Encode with FFmpeg
-    const outputPath = join(tmpDir, 'output.mp4');
-    await encodeFrames(framesDir, outputPath, fps, width, height);
+    // Finalize encoding.
+    ffmpeg.stdin.end();
+    await ffmpegDone;
 
     if (onProgress) onProgress(95);
 
-    const { readFile } = await import('fs/promises');
-    const videoBuffer = await readFile(outputPath);
+    await browser.close();
+    browser = null;
 
-    // Cleanup
+    const videoBuffer = await readFile(outputPath);
     await rm(tmpDir, { recursive: true, force: true });
 
     if (onProgress) onProgress(100);
-
+    console.log(`[renderer] ${label} path produced ${frameNum} frames -> ${(videoBuffer.length / 1024 / 1024).toFixed(2)} MB`);
     return videoBuffer;
   } catch (error) {
-    await browser.close().catch(() => {});
+    if (ffmpeg) {
+      try {
+        ffmpeg.stdin.destroy();
+        ffmpeg.kill('SIGKILL');
+      } catch {
+        /* ignore */
+      }
+    }
+    if (browser) await browser.close().catch(() => {});
     await rm(tmpDir, { recursive: true, force: true }).catch(() => {});
     throw error;
   }
 }
 
-function encodeFrames(
-  framesDir: string,
-  outputPath: string,
-  fps: number,
-  width: number,
-  height: number
-): Promise<void> {
+/** Writes a chunk to a stream, awaiting drain to respect backpressure. */
+function writeToStream(stream: Writable, chunk: Buffer): Promise<void> {
   return new Promise((resolve, reject) => {
-    const ffmpeg = spawn(resolveFfmpeg(), [
-      '-y',
-      '-framerate', String(fps),
-      '-i', join(framesDir, 'frame_%06d.png'),
-      '-vf', `scale=${width}:${height}`,
-      '-c:v', 'libx264',
-      '-pix_fmt', 'yuv420p',
-      '-preset', 'fast',
-      '-crf', '23',
-      outputPath,
-    ]);
-
-    let stderr = '';
-    ffmpeg.stderr.on('data', (data: Buffer) => {
-      stderr += data.toString();
+    const ok = stream.write(chunk, (err) => {
+      if (err) reject(err);
     });
-
-    ffmpeg.on('close', (code) => {
-      if (code === 0) {
-        resolve();
-      } else {
-        reject(new Error(`FFmpeg exited with code ${code}: ${stderr.slice(-500)}`));
-      }
-    });
-
-    ffmpeg.on('error', (err) => {
-      reject(new Error(`Failed to spawn FFmpeg: ${err.message}`));
-    });
+    if (ok) {
+      resolve();
+    } else {
+      stream.once('drain', resolve);
+    }
   });
 }

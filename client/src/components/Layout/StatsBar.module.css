@@ -1,12 +1,30 @@
 @reference "tailwindcss";
 
 .bar {
-  @apply absolute top-5 left-1/2 -translate-x-1/2 z-10 flex items-center gap-5 px-5 py-2;
+  @apply absolute left-1/2 -translate-x-1/2 z-10 flex items-center gap-5 px-5 py-2;
+  top: calc(var(--safe-top) + 12px);
+  max-width: calc(100vw - 24px);
   background: rgba(6, 11, 18, 0.7);
   backdrop-filter: blur(12px);
   border: 1px solid var(--color-line);
   box-shadow: 0 0 30px rgba(0, 0, 0, 0.4);
   clip-path: polygon(10px 0, calc(100% - 10px) 0, 100% 50%, calc(100% - 10px) 100%, 10px 100%, 0 50%);
+}
+
+/* Phones: tighten spacing and drop the small labels so the four readouts stay
+   on one line and never crowd the Dynamic Island. */
+@media (max-width: 600px) {
+  .bar {
+    gap: 0.7rem;
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+  .statLabel {
+    display: none;
+  }
+  .divider {
+    height: 1rem;
+  }
 }
 
 .statItem {

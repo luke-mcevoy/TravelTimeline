@@ -52,12 +52,16 @@
 /* ── Visited destination dot ─────────────── */
 
 :global(.globe-dot-marker) {
-  width: 7px;
-  height: 7px;
+  width: 9px;
+  height: 9px;
   border-radius: 50%;
-  background: rgba(56, 225, 255, 0.9);
-  border: 1px solid rgba(56, 225, 255, 0.25);
-  box-shadow: 0 0 8px rgba(56, 225, 255, 0.6);
+  /* White core + cyan ring + thin dark outline so each visited city reads as a
+     distinct pin against both bright satellite terrain and the cyan arcs. */
+  background: #eaf7ff;
+  border: 2px solid rgba(56, 225, 255, 0.95);
+  box-shadow:
+    0 0 0 1px rgba(2, 14, 22, 0.7),
+    0 0 9px rgba(56, 225, 255, 0.85);
   transition: all 0.3s ease;
 }
 
@@ -75,31 +79,5 @@
   50% { box-shadow: 0 0 28px rgba(56,225,255,1), 0 0 56px rgba(56,225,255,0.6); }
 }
 
-/* ── Label (only on active marker) ───────── */
-
-:global(.globe-label) {
-  font-family: var(--font-mono);
-  font-size: 12px;
-  font-weight: 600;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: #eaf6ff;
-  text-shadow: 0 0 10px rgba(56, 225, 255, 0.5), 0 2px 6px rgba(0, 0, 0, 0.9);
-  padding: 4px 12px;
-  background: rgba(5, 11, 18, 0.7);
-  backdrop-filter: blur(6px);
-  border: 1px solid rgba(56, 225, 255, 0.3);
-  white-space: nowrap;
-  pointer-events: none;
-  margin-top: 10px;
-}
-
-/* Non-active markers reveal their label only on hover. */
-:global(.globe-label--hover) {
-  opacity: 0;
-  transition: opacity 0.18s ease;
-}
-
-:global(.globe-marker:hover .globe-label--hover) {
-  opacity: 1;
-}
+/* The current-city HUD callout is styled inline in MarkerOverlay.tsx so it
+   doesn't depend on CSS-module class extraction. */

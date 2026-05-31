@@ -30,6 +30,16 @@
   --font-mono: 'IBM Plex Mono', 'SF Mono', ui-monospace, monospace;
 }
 
+/* Device safe areas (notch / Dynamic Island / home indicator). Resolve to 0
+   on platforms without insets, so the same rules work on web and on iPhone.
+   Requires viewport-fit=cover (set in index.html). */
+:root {
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
+}
+
 * {
   margin: 0;
   padding: 0;

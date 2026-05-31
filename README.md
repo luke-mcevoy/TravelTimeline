@@ -6,6 +6,59 @@ Travel Timeline scans your photo library, figures out the trips you took and the
 
 ---
 
+## Demo
+
+<p align="center">
+  <img src="docs/screenshots/01-hero.png" alt="Travel Timeline — cinematic globe flythrough with the route arcs and a featured photo" width="100%">
+</p>
+
+<p align="center"><em>Your whole travel history as a cinematic flythrough — built automatically from Apple Photos. One beautiful photo per place, on a true satellite globe.</em></p>
+
+<table>
+  <tr>
+    <td width="50%" valign="top">
+      <img src="docs/screenshots/02-satellite.png" alt="High-resolution satellite globe with tappable route markers" width="100%"><br>
+      <strong>True satellite globe</strong><br>
+      Streams crisp ESRI World Imagery that sharpens as you zoom. Every place is a tappable marker — click one to jump to that moment and photo.
+    </td>
+    <td width="50%" valign="top">
+      <img src="docs/screenshots/06-space.png" alt="Zoom out and the route becomes a beam pointing to the Moon" width="100%"><br>
+      <strong>Reach for the Moon</strong><br>
+      Pull back into space and the city arcs dissolve into a single beam showing how far your travels carry you toward the Moon (384,400 km).
+    </td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top">
+      <img src="docs/screenshots/03-around-the-world.png" alt="Animation of how many times your travels circle the Earth" width="100%"><br>
+      <strong>Around the world</strong><br>
+      A plane orbits a mini-Earth to show how many times your total distance circles the planet.
+    </td>
+    <td width="50%" valign="top">
+      <img src="docs/screenshots/04-to-the-moon.png" alt="A rocket charting the percentage of the way to the Moon" width="100%"><br>
+      <strong>…and on to the Moon</strong><br>
+      A rocket charts your percentage of the 384,400 km journey from Earth to the Moon.
+    </td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top">
+      <img src="docs/screenshots/05-passport.png" alt="Shareable travel passport report with a stamp for every country" width="100%"><br>
+      <strong>Travel passport</strong><br>
+      A shareable poster of your stats with a collected stamp for every country you've visited. (Flag stamps render in full color on device.)
+    </td>
+    <td width="50%" valign="top">
+      <strong>…and more</strong><br><br>
+      • Comfortable cinematic camera that arcs between places<br>
+      • Scrub/seek timeline with adjustable speed<br>
+      • Hide the photo card to admire the globe<br>
+      • Starfield backdrop from a real star catalog<br>
+      • 1080p video export (web)<br>
+      • Runs on iOS, fully on-device
+    </td>
+  </tr>
+</table>
+
+---
+
 ## What it does
 
 - **Zero-input story builder** — Point it at your Apple Photos library, choose a time window (1 / 3 / 5 / 10 years / All), and it does the rest: detects trips, identifies places, picks the best photo per place, and plays the result back. No manual entry required.
@@ -14,6 +67,7 @@ Travel Timeline scans your photo library, figures out the trips you took and the
 - **True satellite globe** — Streams high-resolution ESRI World Imagery that sharpens as you zoom, with a glowing atmosphere and a starfield backdrop.
 - **Comfortable cinematic camera** — The camera flies a smooth arc between places (lifts up, crosses, descends), scaled to distance, so big jumps feel like a flight rather than a dizzying skim.
 - **Interactive playback** — Auto-play or scrub chronologically; click any place on the globe to jump straight to that moment and photo; hide the photo card anytime to admire the globe.
+- **Cosmic perspective** — Playful "how far have I been" views: how many times your distance circles the Earth, how far it carries you toward the **Moon** (an animated rocket *and* a zoom-out beam right on the globe), and a shareable **travel passport** with a stamp for every country.
 - **Video export** — Render a downloadable 1080p MP4 of the flythrough (server-side via Puppeteer + FFmpeg).
 - **Local-first & private** — Everything runs on your machine. No photos are ever uploaded anywhere.
 

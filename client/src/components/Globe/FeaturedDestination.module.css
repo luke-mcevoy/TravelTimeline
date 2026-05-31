@@ -49,29 +49,38 @@
   /* Never exceed the safe area between the stats bar and the timeline. */
   max-height: min(72vh, calc(100vh - 232px));
   transform-origin: center;
-  /* gentle fade-in + slow Ken Burns drift for a living, cinematic feel */
-  animation: featured-fade 0.9s ease, featured-kenburns 18s ease-out forwards;
 }
 
-@keyframes featured-fade {
-  from { opacity: 0; }
-  to { opacity: 1; }
+/* Incoming photo sits on top of the current one and crossfades in, so the card
+   transitions photo→photo and never flashes the dark frame underneath. */
+.incoming {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  max-height: none;
+  object-fit: cover;
+  opacity: 0;
+  animation: none;
+  transition: opacity var(--xfade, 480ms) ease;
 }
 
-@keyframes featured-kenburns {
-  from { transform: scale(1.001); }
-  to { transform: scale(1.07); }
+.incomingShow {
+  opacity: 1;
 }
 
 .shade {
   position: absolute;
   inset: 0;
   pointer-events: none;
+  /* Just enough scrim under the caption to keep text legible, kept low so the
+     photo stays the focus. */
   background: linear-gradient(
     to top,
-    rgba(3, 6, 13, 0.94) 0%,
-    rgba(3, 6, 13, 0.5) 20%,
-    rgba(3, 6, 13, 0) 42%
+    rgba(3, 6, 13, 0.82) 0%,
+    rgba(3, 6, 13, 0.32) 14%,
+    rgba(3, 6, 13, 0) 30%
   );
 }
 
@@ -193,4 +202,63 @@
 .showButton:hover {
   background: rgba(56, 225, 255, 0.2);
   border-color: rgba(56, 225, 255, 0.55);
+}
+
+/* ── Phones: a bottom-anchored card that fits the screen, sitting just above
+      the timeline console instead of a narrow right rail that clips off-edge. ── */
+@media (max-width: 768px) {
+  /* A full-width "now showing" card pinned just above the slim timeline bar, so
+     the photo spans the screen instead of a narrow rail. */
+  .stage {
+    top: auto;
+    left: 0;
+    right: 0;
+    bottom: calc(var(--safe-bottom) + 60px);
+    width: 100%;
+    padding: 0 10px;
+    align-items: flex-end;
+    justify-content: center;
+  }
+
+  .frame {
+    width: 100%;
+    max-width: none;
+  }
+
+  /* Full-width crop; kept short so the card is a slim strip and the globe stays
+     the star of the screen. */
+  .photo {
+    width: 100%;
+    height: min(24vh, 210px);
+    max-width: none;
+    max-height: none;
+    object-fit: cover;
+  }
+
+  .caption {
+    padding: 16px 16px 12px;
+    gap: 4px;
+  }
+
+  .place {
+    font-size: 19px;
+  }
+
+  .meta {
+    font-size: 11px;
+    gap: 7px;
+  }
+
+  .hideButton {
+    width: 30px;
+    height: 30px;
+    top: 12px;
+    right: 12px;
+  }
+
+  .showButton {
+    bottom: calc(var(--safe-bottom) + 68px);
+    left: 14px;
+    right: auto;
+  }
 }
