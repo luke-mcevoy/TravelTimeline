@@ -17,6 +17,7 @@ create table if not exists public.profiles (
   handle          text unique not null,
   display_name    text,
   avatar_url      text,
+  bio             text,
   home_country    text,
   countries_count integer not null default 0,
   cities_count    integer not null default 0,

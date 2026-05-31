@@ -8,6 +8,8 @@ export type {
   FriendEdge,
   MyStats,
   LeaderboardMetric,
+  FeedItem,
+  ProfileUpdate,
 } from './socialTypes';
 
 const api = () => getSocialApi();
@@ -32,12 +34,29 @@ export async function createProfile(input: {
   return api().createProfile(input);
 }
 
+export async function updateProfile(userId: string, patch: import('./socialTypes').ProfileUpdate) {
+  if (!api().updateProfile) throw new Error('Profile updates not supported.');
+  return api().updateProfile!(userId, patch);
+}
+
 export async function updateMyStats(userId: string, stats: import('./socialTypes').MyStats) {
   return api().updateMyStats(userId, stats);
 }
 
+export async function updateAvatar(userId: string, avatarUrl: string | null) {
+  if (api().updateAvatar) await api().updateAvatar!(userId, avatarUrl);
+}
+
 export async function searchProfiles(query: string, selfId: string) {
   return api().searchProfiles(query, selfId);
+}
+
+export async function getFriendsFeed(selfId: string, limit = 40) {
+  return api().getFriendsFeed(selfId, limit);
+}
+
+export async function getDiscoverProfiles(selfId: string, limit = 24) {
+  return api().getDiscoverProfiles(selfId, limit);
 }
 
 export async function getLeaderboard(

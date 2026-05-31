@@ -5,9 +5,20 @@ import type {
   FriendState,
   MyStats,
   LeaderboardMetric,
+  FeedItem,
+  ProfileUpdate,
 } from '../socialTypes';
 
-export type { Profile, RemotePlace, FriendEdge, FriendState, MyStats, LeaderboardMetric };
+export type {
+  Profile,
+  RemotePlace,
+  FriendEdge,
+  FriendState,
+  MyStats,
+  LeaderboardMetric,
+  FeedItem,
+  ProfileUpdate,
+};
 
 export interface SocialApi {
   mockListDevUsers?(): Profile[];
@@ -19,9 +30,13 @@ export interface SocialApi {
   isHandleAvailable(handle: string, exceptUserId?: string): Promise<boolean>;
   createProfile(input: { id: string; handle: string; displayName: string | null }): Promise<Profile>;
   updateMyStats(userId: string, stats: MyStats): Promise<void>;
+  updateProfile?(userId: string, patch: ProfileUpdate): Promise<Profile>;
   updateAvatar?(userId: string, avatarUrl: string | null): Promise<void>;
   searchProfiles(query: string, selfId: string): Promise<Profile[]>;
   getProfileByHandle?(handle: string): Promise<Profile | null>;
+
+  getFriendsFeed(selfId: string, limit?: number): Promise<FeedItem[]>;
+  getDiscoverProfiles(selfId: string, limit?: number): Promise<Profile[]>;
 
   getLeaderboard(
     scope: 'global' | 'friends',

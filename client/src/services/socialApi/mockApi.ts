@@ -6,6 +6,7 @@ import {
   edgeStateForRow,
   friendStateBetween,
 } from './friendState';
+import { buildFeedItems } from '../socialFeed';
 import {
   createSeedStore,
   MOCK_SESSION_KEY,
@@ -22,6 +23,9 @@ function loadStore(): MockStore {
     const raw = localStorage.getItem(MOCK_STORE_KEY);
     if (raw) {
       memory = JSON.parse(raw) as MockStore;
+      for (const prof of memory.profiles) {
+        if (prof.bio === undefined) prof.bio = null;
+      }
       return memory;
     }
   } catch {
@@ -91,6 +95,7 @@ export const mockSocialApi: SocialApi = {
       handle: input.handle,
       display_name: input.displayName,
       avatar_url: null,
+      bio: null,
       home_country: null,
       countries_count: 0,
       cities_count: 0,
@@ -257,6 +262,39 @@ export const mockSocialApi: SocialApi = {
     store.heroData[path] = dataUrl;
     persist();
     return path;
+  },
+
+  async getFriendsFeed(selfId, limit = 40) {
+    const store = loadStore();
+    const friends = (await mockSocialApi.getFriendEdges(selfId))
+      .filter((e) => e.state === 'accepted')
+      .map((e) => e.profile);
+    const items = buildFeedItems(friends, (fid) =>
+      store.places.filter((pl) => pl.user_id === fid)
+    );
+    return items.slice(0, limit);
+  },
+
+  async getDiscoverProfiles(selfId, limit = 24) {
+    const store = loadStore();
+    const out: Profile[] = [];
+    for (const prof of store.profiles) {
+      if (prof.id === selfId) continue;
+      const st = friendStateBetween(store.friendships, selfId, prof.id);
+      if (st !== 'none') continue;
+      out.push(prof);
+    }
+    return out.sort((a, b) => b.countries_count - a.countries_count).slice(0, limit);
+  },
+
+  async updateProfile(userId, patch) {
+    const store = loadStore();
+    const prof = store.profiles.find((x) => x.id === userId);
+    if (!prof) throw new Error('Profile not found');
+    if (patch.displayName !== undefined) prof.display_name = patch.displayName;
+    if (patch.bio !== undefined) prof.bio = patch.bio;
+    persist();
+    return prof;
   },
 
   heroUrl(path) {

@@ -175,3 +175,31 @@
     transform: rotate(360deg);
   }
 }
+
+.bio {
+  margin: 4px 0 0;
+  font-size: 13px;
+  line-height: 1.45;
+  color: rgba(234, 246, 255, 0.65);
+}
+.compare {
+  margin-bottom: 16px;
+  padding: 12px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+.compareTitle {
+  margin: 0 0 8px;
+  font-size: 11px;
+  font-family: var(--font-mono, monospace);
+  text-transform: uppercase;
+  color: rgba(234, 246, 255, 0.5);
+}
+.compareRow {
+  display: flex;
+  justify-content: space-between;
+  font-size: 13px;
+  color: #eaf6ff;
+  margin-bottom: 4px;
+}

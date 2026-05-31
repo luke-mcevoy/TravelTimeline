@@ -3,6 +3,7 @@ export interface Profile {
   handle: string;
   display_name: string | null;
   avatar_url: string | null;
+  bio: string | null;
   home_country: string | null;
   countries_count: number;
   cities_count: number;
@@ -26,6 +27,15 @@ export interface RemotePlace {
   hero_path: string | null;
 }
 
+/** A friend's synced place — powers the home feed. */
+export interface FeedItem {
+  id: string;
+  profile: Profile;
+  place: RemotePlace;
+  /** ISO date string used for sorting (departure preferred, else arrival). */
+  sortDate: string;
+}
+
 export type FriendState = 'none' | 'pending_out' | 'pending_in' | 'accepted';
 
 export interface FriendEdge {
@@ -44,4 +54,9 @@ export interface MyStats {
 export type LeaderboardMetric = 'countries' | 'distance';
 
 export const PROFILE_COLS =
-  'id, handle, display_name, avatar_url, home_country, countries_count, cities_count, places_count, distance_km, last_synced_at';
+  'id, handle, display_name, avatar_url, bio, home_country, countries_count, cities_count, places_count, distance_km, last_synced_at';
+
+export interface ProfileUpdate {
+  displayName?: string | null;
+  bio?: string | null;
+}

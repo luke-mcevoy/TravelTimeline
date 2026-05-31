@@ -19,6 +19,7 @@ interface Props {
 
 export function FriendProfile({ profile, onClose }: Props) {
   const userId = useAuthStore((s) => s.userId);
+  const myProfile = useAuthStore((s) => s.profile);
   const viewProfile = useTripStore((s) => s.viewProfile);
   const [places, setPlaces] = useState<Awaited<ReturnType<typeof getPlacesFor>>>([]);
   const [state, setState] = useState<string>('none');
@@ -79,6 +80,7 @@ export function FriendProfile({ profile, onClose }: Props) {
           <div>
             <h2 className={styles.handle}>@{profile.handle}</h2>
             {profile.display_name && <p className={styles.name}>{profile.display_name}</p>}
+            {profile.bio && <p className={styles.bio}>{profile.bio}</p>}
           </div>
         </div>
 
@@ -87,6 +89,21 @@ export function FriendProfile({ profile, onClose }: Props) {
           <Stat label="Cities" value={String(profile.cities_count)} />
           <Stat label="Distance" value={fmtKm(profile.distance_km)} />
         </div>
+
+        
+        {myProfile && profile.id !== userId && (
+          <div className={styles.compare}>
+            <p className={styles.compareTitle}>vs you</p>
+            <div className={styles.compareRow}>
+              <span>Countries</span>
+              <span>{profile.countries_count} / {myProfile.countries_count}</span>
+            </div>
+            <div className={styles.compareRow}>
+              <span>Distance</span>
+              <span>{fmtKm(profile.distance_km)} / {fmtKm(myProfile.distance_km)}</span>
+            </div>
+          </div>
+        )}
 
         {flags.length > 0 && (
           <div className={styles.badges}>

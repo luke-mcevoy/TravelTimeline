@@ -12,6 +12,9 @@ import {
   Clock,
   Trash2,
   Share2,
+  Rss,
+  Compass,
+  Settings,
 } from 'lucide-react';
 import { useAuthStore } from '@/stores/authStore';
 import { useTripStore } from '@/stores/tripStore';
@@ -32,9 +35,12 @@ import {
   type LeaderboardMetric,
 } from '@/services/social';
 import { FriendProfile } from './FriendProfile';
+import { FeedTab } from './FeedTab';
+import { DiscoverTab } from './DiscoverTab';
+import { MyProfileSheet } from './MyProfileSheet';
 import styles from './SocialPanel.module.css';
 
-type Tab = 'friends' | 'leaderboard';
+type Tab = 'feed' | 'friends' | 'discover' | 'leaderboard';
 
 function fmtKm(km: number): string {
   return km >= 1000 ? `${(km / 1000).toFixed(1)}k km` : `${Math.round(km)} km`;
@@ -47,7 +53,8 @@ export function SocialPanel() {
   const viewProfile = useTripStore((s) => s.viewProfile);
 
   const [open, setOpen] = useState(false);
-  const [tab, setTab] = useState<Tab>('friends');
+  const [tab, setTab] = useState<Tab>('feed');
+  const [showMyProfile, setShowMyProfile] = useState(false);
   const [profileView, setProfileView] = useState<Profile | null>(null);
   const [requestBadge, setRequestBadge] = useState(0);
 
@@ -214,6 +221,14 @@ export function SocialPanel() {
                   {profile?.countries_count ?? 0} countries · {fmtKm(profile?.distance_km ?? 0)}
                 </span>
               </div>
+              <button
+                type="button"
+                className={styles.iconBtn}
+                onClick={() => setShowMyProfile(true)}
+                title="Edit profile"
+              >
+                <Settings size={16} />
+              </button>
               <button className={styles.iconBtn} onClick={shareMyProfile} title="Copy profile link">
                 <Share2 size={16} />
               </button>
@@ -231,6 +246,12 @@ export function SocialPanel() {
 
             <div className={styles.tabs}>
               <button
+                className={tab === 'feed' ? styles.tabActive : styles.tab}
+                onClick={() => setTab('feed')}
+              >
+                <Rss size={15} /> Feed
+              </button>
+              <button
                 className={tab === 'friends' ? styles.tabActive : styles.tab}
                 onClick={() => setTab('friends')}
               >
@@ -238,15 +259,33 @@ export function SocialPanel() {
                 {requestBadge > 0 && <span className={styles.tabBadge}>{requestBadge}</span>}
               </button>
               <button
+                className={tab === 'discover' ? styles.tabActive : styles.tab}
+                onClick={() => setTab('discover')}
+              >
+                <Compass size={15} /> Discover
+              </button>
+              <button
                 className={tab === 'leaderboard' ? styles.tabActive : styles.tab}
                 onClick={() => setTab('leaderboard')}
               >
-                <Trophy size={15} /> Leaderboard
+                <Trophy size={15} /> Ranks
               </button>
             </div>
 
             <div className={styles.body}>
-              {tab === 'friends' ? (
+              {tab === 'feed' && userId && (
+                <FeedTab
+                  key={userId}
+                  onOpenProfile={(p) => setProfileView(p)}
+                  onClosePanel={() => setOpen(false)}
+                />
+              )}
+              {tab === 'discover' && userId && (
+                <DiscoverTab
+                  key={userId}
+                  onOpenProfile={(p) => setProfileView(p)} />
+              )}
+              {tab === 'friends' && (
                 <>
                   <div className={styles.searchRow}>
                     <Search size={15} className={styles.searchIcon} />
@@ -329,7 +368,8 @@ export function SocialPanel() {
                     </Section>
                   )}
                 </>
-              ) : (
+              )}
+              {tab === 'leaderboard' && (
                 <>
                   <div className={styles.segRow}>
                     <div className={styles.seg}>
@@ -432,6 +472,7 @@ export function SocialPanel() {
         </div>
       )}
 
+      {showMyProfile && <MyProfileSheet onClose={() => setShowMyProfile(false)} />}
       {profileView && (
         <FriendProfile profile={profileView} onClose={() => setProfileView(null)} />
       )}

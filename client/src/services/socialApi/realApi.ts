@@ -4,6 +4,7 @@ import type { SocialApi } from './types';
 import type { Profile, RemotePlace, FriendEdge } from '../socialTypes';
 import { PROFILE_COLS } from '../socialTypes';
 import { acceptedFriendIds, edgeStateForRow, friendStateBetween } from './friendState';
+import { buildFeedItemsAsync } from '../socialFeed';
 
 interface FriendshipRow {
   id: string;
@@ -217,6 +218,38 @@ export const realSupabaseApi: SocialApi = {
     });
     if (error) return null;
     return path;
+  },
+
+
+  async getFriendsFeed(selfId, limit = 40) {
+    const friends = (await realSupabaseApi.getFriendEdges(selfId))
+      .filter((e) => e.state === 'accepted')
+      .map((e) => e.profile);
+    const items = await buildFeedItemsAsync(friends, (fid) => realSupabaseApi.getPlacesFor(fid, selfId));
+    return items.slice(0, limit);
+  },
+
+  async getDiscoverProfiles(selfId, limit = 24) {
+    const sb = getSupabaseClient();
+    const friendIds = new Set(await acceptedFriendIds(await myFriendships(sb, selfId), selfId));
+    friendIds.add(selfId);
+    const { data, error } = await sb
+      .from('profiles')
+      .select(PROFILE_COLS)
+      .order('countries_count', { ascending: false })
+      .limit(80);
+    if (error) throw error;
+    return ((data as Profile[]) ?? []).filter((p) => !friendIds.has(p.id)).slice(0, limit);
+  },
+
+  async updateProfile(userId, patch) {
+    const sb = getSupabaseClient();
+    const row: Record<string, unknown> = {};
+    if (patch.displayName !== undefined) row.display_name = patch.displayName;
+    if (patch.bio !== undefined) row.bio = patch.bio;
+    const { data, error } = await sb.from('profiles').update(row).eq('id', userId).select(PROFILE_COLS).single();
+    if (error) throw error;
+    return data as Profile;
   },
 
   heroUrl(path) {

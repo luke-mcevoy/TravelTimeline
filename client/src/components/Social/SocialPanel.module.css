@@ -434,3 +434,20 @@
   object-fit: cover;
   flex-shrink: 0;
 }
+
+.meBtn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  color: inherit;
+  text-align: left;
+  min-width: 0;
+}
+.tabs {
+  flex-wrap: wrap;
+}

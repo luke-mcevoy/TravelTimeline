@@ -173,6 +173,16 @@ function buildProfiles(places: RemotePlace[]): Profile[] {
     ['mock-user-alex', 'alex_roam', 'Alex Kim', 270],
   ];
 
+  const bios: Record<string, string> = {
+    [DEMO_ID]: 'Bay Area based. Building my honest travel map from every photo I take.',
+    'mock-user-mara': 'Slow travel across Asia and Europe — one city at a time.',
+    'mock-user-kai': 'Running marathons on every continent I visit.',
+    'mock-user-sam': 'Weekend hops around Europe by train.',
+    'mock-user-zoe': 'Latin America deep dives — food first, maps second.',
+    'mock-user-leo': 'Tech conferences are just an excuse for layovers in new cities.',
+    'mock-user-nina': 'Chasing winter sun from Cairo to Lisbon.',
+    'mock-user-alex': 'Southeast Asia temple runs and street food.',
+  };
   const now = new Date().toISOString();
   return meta.map(([id, handle, display_name, avatarHue]) => {
     const userPlaces = (byUser.get(id) ?? []).sort((a, b) =>
@@ -183,6 +193,7 @@ function buildProfiles(places: RemotePlace[]): Profile[] {
       id,
       handle,
       display_name,
+      bio: bios[id] ?? null,
       avatar_url: `mock-avatar:${avatarHue}`,
       home_country: s.home_country,
       countries_count: s.countries_count,
