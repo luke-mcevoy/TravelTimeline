@@ -73,7 +73,6 @@ npm run dev   # from repo root: npm run dev
 
 ## Follow-ups (optional)
 
-- Podium styling + “your rank” on leaderboard (partial CSS in module; wire in panel if desired)
 - Avatar upload UI (mock `updateAvatar` exists)
 - View friend reel (would need reel entry without modifying `reel.ts` behavior)
 - Reset mock DB helper exposed in dev settings (`resetMockStore()` in `socialApi/index.ts`)
