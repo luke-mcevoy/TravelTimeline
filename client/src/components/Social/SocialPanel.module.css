@@ -327,3 +327,59 @@
     transform: rotate(360deg);
   }
 }
+
+.badge {
+  position: absolute;
+  top: -2px;
+  right: -2px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 8px;
+  background: #ff6b6b;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.tabBadge {
+  margin-left: 4px;
+  background: #ff6b6b;
+  color: #fff;
+  font-size: 10px;
+  padding: 1px 5px;
+  border-radius: 8px;
+}
+
+.mockBanner {
+  margin: 0;
+  padding: 6px 14px;
+  font-size: 11px;
+  font-family: var(--font-mono, monospace);
+  color: var(--color-cyan, #38e1ff);
+  background: rgba(56, 225, 255, 0.08);
+  border-bottom: 1px solid rgba(56, 225, 255, 0.15);
+}
+
+.rowMain {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  text-align: left;
+  color: inherit;
+}
+
+.rowAvatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  object-fit: cover;
+}

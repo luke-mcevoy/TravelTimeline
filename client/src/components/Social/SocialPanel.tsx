@@ -133,8 +133,9 @@ export function SocialPanel() {
   };
 
   const viewGlobe = async (p: Profile) => {
+    if (!userId) return;
     try {
-      const places = await getPlacesFor(p.id);
+      const places = await getPlacesFor(p.id, userId!);
       if (places.length === 0) return;
       viewProfile({ handle: p.handle, displayName: p.display_name }, placesToViewerTrips(places));
       setOpen(false);

@@ -1,7 +1,9 @@
 import { create } from 'zustand';
-import { supabase, socialEnabled } from '@/services/supabase';
+import { nanoid } from 'nanoid';
+import { supabase, socialEnabled, socialMock } from '@/services/supabase';
 import { signInWithApple, consumeAppleName } from '@/services/appleAuth';
-import { getMyProfile, createProfile, isHandleAvailable, type Profile } from '@/services/social';
+import { getMyProfile, createProfile, isHandleAvailable, mockListDevUsers, type Profile } from '@/services/social';
+import { getSocialApi } from '@/services/socialApi';
 
 type Status = 'loading' | 'signedOut' | 'needsProfile' | 'ready';
 
@@ -13,9 +15,10 @@ interface AuthStore {
   busy: boolean;
   error: string | null;
   otpSent: boolean;
-
   init: () => void;
   signInApple: () => Promise<void>;
+  signInMockUser: (userId: string) => Promise<void>;
+  startMockNewAccount: () => void;
   sendEmailOtp: (email: string) => Promise<void>;
   verifyEmailOtp: (email: string, token: string) => Promise<void>;
   submitProfile: (handle: string, displayName: string) => Promise<void>;
@@ -28,6 +31,24 @@ function message(e: unknown): string {
   return e instanceof Error ? e.message : 'Something went wrong.';
 }
 
+async function applyUser(
+  set: (p: Partial<AuthStore>) => void,
+  userId: string | null,
+  email: string | null
+) {
+  if (!userId) {
+    set({ status: 'signedOut', userId: null, email: null, profile: null });
+    return;
+  }
+  set({ userId, email });
+  try {
+    const profile = await getMyProfile(userId);
+    set({ profile, status: profile ? 'ready' : 'needsProfile' });
+  } catch (e) {
+    set({ error: message(e), status: 'needsProfile' });
+  }
+}
+
 export const useAuthStore = create<AuthStore>((set, get) => ({
   status: socialEnabled ? 'loading' : 'signedOut',
   userId: null,
@@ -38,40 +59,50 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
   otpSent: false,
 
   init: () => {
+    if (!socialEnabled) {
+      set({ status: 'signedOut' });
+      return;
+    }
+    if (socialMock) {
+      const uid = getSocialApi().mockCurrentUserId?.() ?? null;
+      applyUser(set, uid, uid ? 'mock@local.dev' : null);
+      return;
+    }
     if (!supabase) {
       set({ status: 'signedOut' });
       return;
     }
-
-    const applySession = async (userId: string | null, email: string | null) => {
-      if (!userId) {
-        set({ status: 'signedOut', userId: null, email: null, profile: null });
-        return;
-      }
-      set({ userId, email });
-      try {
-        const profile = await getMyProfile(userId);
-        set({ profile, status: profile ? 'ready' : 'needsProfile' });
-      } catch (e) {
-        set({ error: message(e), status: 'needsProfile' });
-      }
-    };
-
     supabase.auth.getSession().then(({ data }) => {
       const s = data.session;
-      applySession(s?.user.id ?? null, s?.user.email ?? null);
+      applyUser(set, s?.user.id ?? null, s?.user.email ?? null);
     });
-
     supabase.auth.onAuthStateChange((_event, session) => {
-      applySession(session?.user.id ?? null, session?.user.email ?? null);
+      applyUser(set, session?.user.id ?? null, session?.user.email ?? null);
     });
+  },
+
+  signInMockUser: async (userId) => {
+    set({ busy: true, error: null });
+    try {
+      getSocialApi().mockSignInAs?.(userId);
+      await applyUser(set, userId, 'mock@local.dev');
+    } catch (e) {
+      set({ error: message(e) });
+    } finally {
+      set({ busy: false });
+    }
+  },
+
+  startMockNewAccount: () => {
+    const id = `mock-user-${nanoid(10)}`;
+    getSocialApi().mockSignInAs?.(id);
+    set({ userId: id, email: 'mock@local.dev', profile: null, status: 'needsProfile', error: null });
   },
 
   signInApple: async () => {
     set({ busy: true, error: null });
     try {
       await signInWithApple();
-      // onAuthStateChange drives the rest.
     } catch (e) {
       set({ error: message(e) });
     } finally {
@@ -107,7 +138,6 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
       });
       if (error) throw error;
       set({ otpSent: false });
-      // onAuthStateChange drives the rest.
     } catch (e) {
       set({ error: message(e) });
     } finally {
@@ -125,7 +155,7 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
     }
     set({ busy: true, error: null });
     try {
-      if (!(await isHandleAvailable(normalized))) {
+      if (!(await isHandleAvailable(normalized, userId))) {
         set({ error: 'That handle is taken.', busy: false });
         return;
       }
@@ -146,14 +176,17 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
       const profile = await getMyProfile(userId);
       set({ profile, status: profile ? 'ready' : 'needsProfile' });
     } catch {
-      /* keep current */
+      /* keep */
     }
   },
 
   signOut: async () => {
-    if (supabase) await supabase.auth.signOut();
+    if (socialMock) getSocialApi().mockSignOut?.();
+    else if (supabase) await supabase.auth.signOut();
     set({ status: 'signedOut', userId: null, email: null, profile: null, otpSent: false });
   },
 
   clearError: () => set({ error: null }),
 }));
+
+export { mockListDevUsers };
