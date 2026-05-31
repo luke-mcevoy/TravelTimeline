@@ -36,7 +36,7 @@ Shipped a **browser-testable mock social backend** so the full friends/leaderboa
 - Friends search, add/accept, view friend globe (viewer mode)
 - Global + friends leaderboards
 - Friend profile sheet (`FriendProfile.tsx`) with country flag badges, copy profile link
-- Request badge on social trigger
+- Request badge on social trigger + Friends tab
 - `PhotoAccessNotice` — native full-library copy; web mock explainer
 - Deep link: `?profile=handle` (after sign-in)
 

@@ -27,7 +27,6 @@ export function FriendProfile({ profile, onClose }: Props) {
   useEffect(() => {
     if (!userId) return;
     let alive = true;
-    setLoading(true);
     Promise.all([getPlacesFor(profile.id, userId), friendStateWith(userId, profile.id)])
       .then(([p, st]) => {
         if (!alive) return;
