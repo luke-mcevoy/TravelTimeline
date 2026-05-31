@@ -33,7 +33,9 @@ export function FeaturedDestination() {
   const clampedIndex = Math.min(photoIndex, Math.max(0, photos.length - 1));
   const photo = photos[clampedIndex];
   // Hook must run every render — feed it null when there's nothing to show.
-  const src = usePhotoSrc(photo ?? null, HERO_PHOTO_WIDTH);
+  const hookSrc = usePhotoSrc(photo ?? null, HERO_PHOTO_WIDTH);
+  // A friend's place carries a direct remote hero URL instead of a local ref.
+  const src = current?.heroUrl ?? hookSrc;
 
   // ── Crossfade between photos (never fade through black) ──
   // `committedSrc` is the photo currently shown in the base layer; `incomingSrc`
@@ -94,7 +96,7 @@ export function FeaturedDestination() {
   }, [incomingSrc, fadeMs]);
 
   if (!current) return null;
-  if (photos.length === 0) return null;
+  if (photos.length === 0 && !current.heroUrl) return null;
 
   // Hidden: leave only a small button to bring the photo back.
   if (!showPhotoCard) {

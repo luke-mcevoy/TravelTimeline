@@ -141,8 +141,9 @@ export function ReelExport() {
                 <Film className={styles.hero} />
                 <h2 className={styles.title}>Travel Reel</h2>
                 <p className={styles.sub}>
-                  A vertical, share-ready video of your journey — globe flythrough,
-                  your best photos, and your stats. Built in real time (~30s).
+                  A vertical, share-ready video of your journey — globe flythrough
+                  of every place, your photos, and your stats. Rendered smoothly on
+                  your device (about a minute).
                 </p>
                 <button className={styles.primary} onClick={start}>
                   <Film size={18} />
@@ -156,7 +157,7 @@ export function ReelExport() {
                 <Loader2 className={styles.spinner} />
                 <h2 className={styles.title}>{label}</h2>
                 <p className={styles.sub}>
-                  Recording in real time — keep the app in the foreground.
+                  Building your reel — keep the app in the foreground.
                 </p>
                 <div className={styles.track}>
                   <div className={styles.fill} style={{ width: `${pct}%` }} />

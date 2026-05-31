@@ -1,0 +1,45 @@
+.banner {
+  position: fixed;
+  top: calc(var(--safe-top) + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 70;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 8px 8px 8px 14px;
+  border-radius: 999px;
+  background: rgba(8, 16, 24, 0.82);
+  border: 1px solid rgba(56, 225, 255, 0.4);
+  backdrop-filter: blur(10px);
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.4);
+  max-width: calc(100vw - 120px);
+}
+.icon {
+  color: var(--color-cyan, #38e1ff);
+  flex-shrink: 0;
+}
+.text {
+  font-size: 13px;
+  color: rgba(234, 246, 255, 0.85);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.text strong {
+  color: #eaf6ff;
+}
+.back {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 11px;
+  border-radius: 999px;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  background: var(--color-cyan, #38e1ff);
+  color: #04161d;
+  border: none;
+  flex-shrink: 0;
+}

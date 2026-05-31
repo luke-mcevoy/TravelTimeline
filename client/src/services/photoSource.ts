@@ -5,8 +5,9 @@
 import { useEffect, useState } from 'react';
 import { Capacitor } from '@capacitor/core';
 import type { ServerPhotoRef, Trip, Destination } from '@/types';
-import { Photos, type ReverseGeocodeResult } from '@/native/photos';
+import { Photos } from '@/native/photos';
 import { initGeocoder, countryName } from './geo';
+import { initCityDb, nearestCity } from './cityDb';
 import { inferTrips, renameTrip, type InferredTrip } from './tripInference';
 
 export const isNativePlatform = Capacitor.isNativePlatform();
@@ -93,125 +94,47 @@ async function buildTripsNative(
 }
 
 /**
- * Fills in human place names (and refines the country) for the final, small set
- * of destinations using the device's reverse geocoder. Runs sequentially and
- * fails soft — a place that can't be named keeps its country-level label.
+ * Fills in human city names for every destination using the bundled offline
+ * GeoNames dataset (nearest populated place). Instant, network-free, and not
+ * subject to CLGeocoder's throttling — so places reliably get a real city name
+ * instead of falling back to country-only. The country itself was already
+ * resolved offline (borders-polygon lookup) during trip inference.
  */
 async function enrichPlaceNames(trips: InferredTrip[]): Promise<void> {
-  const pacer = createGeoPacer();
-  const all = trips.flatMap((t) => t.destinations);
-
-  for (const d of all) {
-    const g = await resolvePlace(pacer, d);
-    d.city = g.city;
-    d.country = g.country;
-    d.countryCode = g.countryCode;
-  }
-
-  // Second chance for anything the geocoder throttled on the first pass. A brief
-  // cooldown lets CLGeocoder's per-minute window fully clear, then we retry the
-  // stragglers at a gentler pace so a long trip still ends up fully named.
-  const missing = all.filter((d) => !d.city);
-  if (missing.length > 0) {
-    await delay(5000);
-    pacer.spacing = 1100;
-    for (const d of missing) {
-      const g = await resolvePlace(pacer, d);
-      d.city = g.city;
-      d.country = g.country;
-      d.countryCode = g.countryCode;
-    }
-  }
-
+  await initCityDb();
+  for (const d of trips.flatMap((t) => t.destinations)) applyCityName(d);
   for (const trip of trips) renameTrip(trip);
 }
 
-interface PlaceFields {
+/** Sets the nearest-city name on a place (and backfills country if missing). */
+function applyCityName(d: {
   lat: number;
   lng: number;
   city: string;
   country: string;
   countryCode: string;
-}
-
-/** Reverse-geocodes a point and merges the result over the current labels. */
-async function resolvePlace(
-  pacer: GeoPacer,
-  d: PlaceFields
-): Promise<{ city: string; country: string; countryCode: string }> {
-  const r = await reverseGeocodeCached(pacer, d.lat, d.lng);
-  if (!r) return { city: d.city, country: d.country, countryCode: d.countryCode };
-  // Prefer the most specific human place name available, falling back from
-  // city → neighbourhood → district → region. Rural spots (a jungle, a
-  // coastline) often have no `locality` but do carry the coarser fields.
-  const name =
-    r.locality || r.subLocality || r.subAdministrativeArea || r.administrativeArea;
-  const countryCode = r.countryCode ? r.countryCode.toUpperCase() : d.countryCode;
-  return {
-    city: name || d.city,
-    countryCode,
-    country: r.countryCode ? countryName(countryCode) : d.country,
-  };
-}
-
-/**
- * Self-tuning rate controller for CLGeocoder. The device geocoder allows only a
- * limited burst before it hard-throttles (a transient error) for up to a minute.
- * Rather than a fixed delay (too slow when free, too fast when throttled), we
- * adapt: gently speed up after successes, and back off aggressively the moment a
- * throttle appears so the per-minute window can clear before the next request.
- */
-interface GeoPacer {
-  cache: Map<string, ReverseGeocodeResult | null>;
-  spacing: number; // ms to leave between network requests
-  last: number; // timestamp of the last request
-}
-
-function createGeoPacer(): GeoPacer {
-  return { cache: new Map(), spacing: 450, last: 0 };
-}
-
-async function reverseGeocodeCached(
-  pacer: GeoPacer,
-  lat: number,
-  lng: number
-): Promise<ReverseGeocodeResult | null> {
-  const key = `${lat.toFixed(2)},${lng.toFixed(2)}`;
-  const hit = pacer.cache.get(key);
-  if (hit !== undefined) return hit;
-
-  let result: ReverseGeocodeResult | null = null;
-  for (let attempt = 0; attempt < 6; attempt++) {
-    const since = Date.now() - pacer.last;
-    if (since < pacer.spacing) await delay(pacer.spacing - since);
-    pacer.last = Date.now();
-    try {
-      result = await Photos.reverseGeocode({ lat, lng });
-      // Success: ease the pace back up for the next request.
-      pacer.spacing = Math.max(400, pacer.spacing - 80);
-      break;
-    } catch {
-      // Throttled: slow down hard and wait out (most of) the window before retry.
-      pacer.spacing = Math.min(8000, Math.round(pacer.spacing * 1.9) + 500);
-      await delay(pacer.spacing);
-    }
+}): void {
+  const c = nearestCity(d.lat, d.lng);
+  if (!c) return;
+  d.city = c.name;
+  if (!d.countryCode && c.countryCode) {
+    d.countryCode = c.countryCode;
+    d.country = countryName(c.countryCode);
   }
-  pacer.cache.set(key, result);
-  return result;
 }
 
 /**
- * Re-runs reverse geocoding over an EXISTING set of trips and returns a new
- * trips array with refreshed city/country labels. Lets the user fix place names
- * (e.g. after a geocoder improvement) without re-scanning their whole library.
- * Native-only — on web the names come from the server import.
+ * Re-derives city/country labels over an EXISTING set of trips (from the offline
+ * city dataset) and returns a new trips array. Lets the user refresh place names
+ * without re-scanning their whole library. Native-only — on web the names come
+ * from the server import.
  */
 export async function refreshPlaceNames(
   trips: Trip[],
   onProgress?: (done: number, total: number) => void
 ): Promise<Trip[]> {
   if (!isNativePlatform) return trips;
-  const pacer = createGeoPacer();
+  await initCityDb();
   const total = trips.reduce((n, t) => n + t.destinations.length, 0);
   let done = 0;
 
@@ -219,25 +142,13 @@ export async function refreshPlaceNames(
   for (const trip of trips) {
     const dests: Destination[] = [];
     for (const d of trip.destinations) {
-      const g = await resolvePlace(pacer, d);
-      dests.push({ ...d, ...g });
+      const next = { ...d };
+      applyCityName(next);
+      dests.push(next);
       done++;
       onProgress?.(done, total);
     }
     out.push({ ...trip, destinations: dests });
-  }
-
-  // Second chance for any place the geocoder throttled, after a cooldown.
-  const missing = out.flatMap((t) => t.destinations).filter((d) => !d.city);
-  if (missing.length > 0) {
-    await delay(5000);
-    pacer.spacing = 1100;
-    for (const d of missing) {
-      const g = await resolvePlace(pacer, d);
-      d.city = g.city;
-      d.country = g.country;
-      d.countryCode = g.countryCode;
-    }
   }
   return out;
 }
@@ -402,8 +313,4 @@ export function usePhotoSrc(
   }, [id, width]);
 
   return src;
-}
-
-function delay(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
 }

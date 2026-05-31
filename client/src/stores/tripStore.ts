@@ -3,10 +3,22 @@ import { nanoid } from 'nanoid';
 import type { Trip, Destination, AnimationState, SortedDestination } from '@/types';
 import { loadTrips, saveTrips } from '@/utils/storage';
 
+export interface ViewingProfile {
+  handle: string;
+  displayName: string | null;
+}
+
 interface TripStore {
   trips: Trip[];
   selectedTripId: string | null;
   animation: AnimationState;
+
+  /** When set, the globe/HUD render this friend's trips instead of the user's
+   *  own. Not persisted; clearing it returns to the user's own data. */
+  viewing: ViewingProfile | null;
+  viewerTrips: Trip[] | null;
+  viewProfile: (profile: ViewingProfile, trips: Trip[]) => void;
+  exitViewer: () => void;
 
   // Trip CRUD
   addTrip: (name: string) => string;
@@ -63,6 +75,13 @@ export const useTripStore = create<TripStore>((set, get) => ({
   trips: loadTrips(),
   selectedTripId: null,
   animation: { ...defaultAnimation },
+  viewing: null,
+  viewerTrips: null,
+
+  viewProfile: (profile, trips) =>
+    set({ viewing: profile, viewerTrips: trips, animation: { ...defaultAnimation } }),
+
+  exitViewer: () => set({ viewing: null, viewerTrips: null, animation: { ...defaultAnimation } }),
 
   addTrip: (name: string) => {
     const id = nanoid();
@@ -184,9 +203,10 @@ export const useTripStore = create<TripStore>((set, get) => ({
   },
 
   getSortedDestinations: () => {
-    const { trips } = get();
+    const { trips, viewerTrips } = get();
+    const source = viewerTrips ?? trips;
     const all: SortedDestination[] = [];
-    for (const trip of trips) {
+    for (const trip of source) {
       for (const dest of trip.destinations) {
         if (!hasValidCoords(dest)) continue;
         all.push({ ...dest, tripId: trip.id, tripName: trip.name });

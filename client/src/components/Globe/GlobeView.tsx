@@ -2,6 +2,7 @@ import { useEffect, useRef, useCallback } from 'react';
 import Globe, { type GlobeInstance } from 'globe.gl';
 import * as THREE from 'three';
 import { useTripStore } from '@/stores/tripStore';
+import { useUiStore } from '@/stores/uiStore';
 import { useGlobeStore } from '@/stores/globeStore';
 import { isNativePlatform, loadPhotoSrc, HERO_PHOTO_WIDTH } from '@/services/photoSource';
 import { spaceFactor } from '@/utils/spaceView';
@@ -371,7 +372,8 @@ export function GlobeView() {
     // the Earth→Moon beam takes over).
     const updateArcBrightness = () => {
       const distance = globe.camera().position.length(); // controls.target is the origin
-      const playing = useTripStore.getState().animation.isPlaying;
+      const playing =
+        useTripStore.getState().animation.isPlaying || useUiStore.getState().cinematic;
 
       // While auto-playing, pin a steady look (the camera's scripted lift/dive on
       // every hop would otherwise pulse the arcs bright→dim). When the user is

@@ -19,6 +19,9 @@ export interface Destination {
   notes?: string;
   /** Photos from Apple Photos import, served via the server */
   serverPhotos?: ServerPhotoRef[];
+  /** Direct image URL for the hero photo (used when viewing a friend's globe,
+   *  where the hero is a remote thumbnail rather than a local PhotoKit ref). */
+  heroUrl?: string;
 }
 
 export interface Trip {

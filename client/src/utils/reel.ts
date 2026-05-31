@@ -1,9 +1,10 @@
 import type { GlobeInstance } from 'globe.gl';
 import type * as THREE from 'three';
+import { Muxer, ArrayBufferTarget } from 'mp4-muxer';
 import type { SortedDestination } from '@/types';
 import { loadPhotoSrc } from '@/services/photoSource';
-import { flyToDestination } from '@/utils/camera';
 import { totalDistance, uniqueCountries, uniqueCities } from '@/utils/animation';
+import { useUiStore } from '@/stores/uiStore';
 
 /**
  * Real-time "Instagram reel" recorder.
@@ -18,12 +19,26 @@ import { totalDistance, uniqueCountries, uniqueCities } from '@/utils/animation'
 const W = 1080;
 const H = 1920;
 const FPS = 30;
-// Fast 4×-style pace through EVERY place. Short dwell + fast flights so even a
-// long trip stays watchable.
-const INTRO_MS = 1600;
-const SEG_MS = 650;
-const OUTRO_MS = 3000;
-const FLY_SPEED = 6;
+
+const INTRO_MS = 1800;
+const OUTRO_MS = 3200;
+// Total time spent flying between/holding on places, spread across all stops so
+// even a long trip stays watchable. Each stop gets at least MIN_SEG so the move
+// is actually perceptible (the old 650ms felt like a hover, not a journey).
+const STOPS_BUDGET_MS = 42_000;
+const MIN_SEG_MS = 650;
+const MAX_SEG_MS = 1300;
+// Fraction of a segment spent flying to the place; the rest holds on it.
+const TRAVEL_FRAC = 0.6;
+
+// Camera altitudes (globe-radius units). We stay pulled back far enough to SEE
+// the route arcs and the geography, with a distance-scaled hump mid-flight.
+const OVERVIEW_LAT = 12;
+const OVERVIEW_ALT = 2.4;
+const ARRIVE_ALT = 1.15;
+const HUMP_SCALE = 1.5;
+const MAX_HUMP = 1.7;
+
 // Modest photo size: the card is small and the dwell is brief, and we hold one
 // decoded image per place in memory, so this keeps total memory in check.
 const REEL_PHOTO_WIDTH = 720;
@@ -32,15 +47,154 @@ const PRELOAD_CONCURRENCY = 6;
 const CYAN = '#38e1ff';
 const BG = '#04070d';
 
-// While recording we lock the satellite tiles to a low, fixed level. Streaming
-// deep tiles as the camera flies is the #1 source of visible glitches in the
-// captured video; a fixed coarse level means the imagery never pops or reloads.
-const REEL_TILE_LEVEL = 5;
+// Called with an arg to set the satellite tile URL, without to read it. We swap
+// the tile engine off (back to the bundled base texture) for recording.
+type TileToggle = { globeTileEngineUrl?: (url?: string) => unknown };
 
-type ReelGlobe = GlobeInstance & {
-  // Called with an arg to set, without to read the current value.
-  globeTileEngineMaxLevel?: (level?: number) => unknown;
-};
+// ── Deterministic great-circle camera math (so a frame's pose is a pure
+//    function of time — required for the offline, lag-free render) ──────────
+
+const toRad = Math.PI / 180;
+const toDeg = 180 / Math.PI;
+type LL = { lat: number; lng: number };
+
+function easeInOut(t: number): number {
+  return t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2;
+}
+
+function angDistDeg(a: LL, b: LL): number {
+  const dLat = (b.lat - a.lat) * toRad;
+  const dLng = (b.lng - a.lng) * toRad;
+  const h =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(a.lat * toRad) * Math.cos(b.lat * toRad) * Math.sin(dLng / 2) ** 2;
+  return 2 * Math.atan2(Math.sqrt(h), Math.sqrt(1 - h)) * toDeg;
+}
+
+/** Great-circle interpolation between two lat/lng points. */
+function slerpLL(a: LL, b: LL, e: number): LL {
+  const av: [number, number, number] = [
+    Math.cos(a.lat * toRad) * Math.cos(a.lng * toRad),
+    Math.cos(a.lat * toRad) * Math.sin(a.lng * toRad),
+    Math.sin(a.lat * toRad),
+  ];
+  const bv: [number, number, number] = [
+    Math.cos(b.lat * toRad) * Math.cos(b.lng * toRad),
+    Math.cos(b.lat * toRad) * Math.sin(b.lng * toRad),
+    Math.sin(b.lat * toRad),
+  ];
+  const dot = Math.max(-1, Math.min(1, av[0] * bv[0] + av[1] * bv[1] + av[2] * bv[2]));
+  const omega = Math.acos(dot);
+  if (omega < 1e-6) return { lat: b.lat, lng: b.lng };
+  const s0 = Math.sin((1 - e) * omega) / Math.sin(omega);
+  const s1 = Math.sin(e * omega) / Math.sin(omega);
+  const x = av[0] * s0 + bv[0] * s1;
+  const y = av[1] * s0 + bv[1] * s1;
+  const z = av[2] * s0 + bv[2] * s1;
+  return { lat: Math.atan2(z, Math.hypot(x, y)) * toDeg, lng: Math.atan2(y, x) * toDeg };
+}
+
+interface Pov {
+  lat: number;
+  lng: number;
+  altitude: number;
+}
+
+/** Builds a pure time → camera-pose function describing the whole reel flight. */
+function makeCameraPath(stops: SortedDestination[], segMs: number, overviewLng: number) {
+  const n = stops.length;
+  const overview: LL = { lat: OVERVIEW_LAT, lng: overviewLng };
+  const stopsEnd = INTRO_MS + n * segMs;
+
+  return function povAt(t: number): Pov {
+    // Intro: slow drift over the overview while the title is up.
+    if (t < INTRO_MS) {
+      const p = t / INTRO_MS;
+      return { lat: OVERVIEW_LAT, lng: overviewLng + (p - 0.5) * 12, altitude: OVERVIEW_ALT };
+    }
+
+    // Outro: pull back out to the overview and hold for the stats card.
+    if (t >= stopsEnd) {
+      const e = easeInOut(Math.min(1, (t - stopsEnd) / (OUTRO_MS * 0.5)));
+      const pos = slerpLL(stops[n - 1], overview, e);
+      const alt = ARRIVE_ALT + (OVERVIEW_ALT - ARRIVE_ALT) * e + Math.sin(Math.PI * e) * 0.3;
+      return { lat: pos.lat, lng: pos.lng, altitude: alt };
+    }
+
+    // A place segment: fly from the previous anchor to this stop, then hold.
+    const k = Math.min(n - 1, Math.floor((t - INTRO_MS) / segMs));
+    const local = (t - INTRO_MS - k * segMs) / segMs; // 0..1 within the segment
+    const from: LL = k === 0 ? overview : stops[k - 1];
+    const to: LL = stops[k];
+
+    const travel = Math.min(1, local / TRAVEL_FRAC);
+    const e = easeInOut(travel);
+    const pos = slerpLL(from, to, e);
+
+    const startAlt = k === 0 ? OVERVIEW_ALT : ARRIVE_ALT;
+    const baseAlt = startAlt + (ARRIVE_ALT - startAlt) * e;
+    const hump = Math.min(MAX_HUMP, (angDistDeg(from, to) / 180) * HUMP_SCALE);
+    const alt = baseAlt + Math.sin(Math.PI * travel) * hump;
+
+    return { lat: pos.lat, lng: pos.lng, altitude: alt };
+  };
+}
+
+// Minimal structural types for the WebCodecs bits we touch, so we don't depend
+// on the WebCodecs TS lib being present.
+interface VideoEncoderLike {
+  configure(cfg: Record<string, unknown>): void;
+  encode(frame: VideoFrameLike, opts?: { keyFrame?: boolean }): void;
+  flush(): Promise<void>;
+  readonly encodeQueueSize: number;
+}
+interface VideoFrameLike {
+  close(): void;
+}
+type VideoEncoderCtor = new (init: {
+  output: (chunk: unknown, meta: unknown) => void;
+  error: (e: unknown) => void;
+}) => VideoEncoderLike;
+type VideoFrameCtor = new (
+  src: CanvasImageSource,
+  init: { timestamp: number; duration?: number }
+) => VideoFrameLike;
+interface VideoEncoderStatic {
+  isConfigSupported?: (cfg: Record<string, unknown>) => Promise<{ supported?: boolean }>;
+}
+
+function getVideoEncoder(): (VideoEncoderCtor & VideoEncoderStatic) | undefined {
+  return (globalThis as unknown as { VideoEncoder?: VideoEncoderCtor & VideoEncoderStatic })
+    .VideoEncoder;
+}
+function getVideoFrame(): VideoFrameCtor | undefined {
+  return (globalThis as unknown as { VideoFrame?: VideoFrameCtor }).VideoFrame;
+}
+
+/** Picks a supported H.264 codec string for WebCodecs, or null if unavailable. */
+async function pickAvcCodec(): Promise<string | null> {
+  const VE = getVideoEncoder();
+  if (!VE || typeof VE.isConfigSupported !== 'function' || !getVideoFrame()) return null;
+  for (const codec of ['avc1.640028', 'avc1.4d0028', 'avc1.42e01f']) {
+    try {
+      const res = await VE.isConfigSupported({
+        codec,
+        width: W,
+        height: H,
+        bitrate: 10_000_000,
+        framerate: FPS,
+      });
+      if (res?.supported) return codec;
+    } catch {
+      /* try next */
+    }
+  }
+  return null;
+}
+
+function nextFrame(): Promise<void> {
+  return new Promise((r) => requestAnimationFrame(() => r()));
+}
 
 export interface ReelResult {
   blob: Blob;
@@ -252,31 +406,101 @@ export async function recordReel(
   const cam = globe.camera() as THREE.Camera;
   const glCanvas = renderer.domElement;
 
-  // Lock the satellite tiles to a coarse, fixed level so they never stream or
-  // pop mid-flight — the #1 cause of glitches in the captured video. Restored
-  // after recording (in the finally below).
-  const reelGlobe = globe as ReelGlobe;
-  const prevTileLevel = (reelGlobe.globeTileEngineMaxLevel?.() as number) ?? 18;
-  reelGlobe.globeTileEngineMaxLevel?.(REEL_TILE_LEVEL);
+  // Pace: spread the per-place time across the whole trip so it never drags.
+  const segMs = Math.round(
+    Math.max(MIN_SEG_MS, Math.min(MAX_SEG_MS, STOPS_BUDGET_MS / stops.length))
+  );
+  const overviewLng = avgLng(stops);
+  const stopsEnd = INTRO_MS + stops.length * segMs;
+  const totalMs = stopsEnd + OUTRO_MS;
+  const povAt = makeCameraPath(stops, segMs, overviewLng);
 
-  const stream = canvas.captureStream(FPS);
-  const recorder = new MediaRecorder(stream, {
-    mimeType: mime.mimeType,
-    videoBitsPerSecond: 12_000_000,
-  });
-  const chunks: BlobPart[] = [];
-  recorder.ondataavailable = (e) => {
-    if (e.data && e.data.size > 0) chunks.push(e.data);
+  // Renders one frame for virtual time `t`: deterministically poses the camera,
+  // draws the globe, then composites the photo card / titles on top.
+  const renderFrame = (t: number) => {
+    const pov = povAt(t);
+    globe.pointOfView({ lat: pov.lat, lng: pov.lng, altitude: pov.altitude }, 0);
+    renderer.render(scene, cam);
+
+    ctx.fillStyle = BG;
+    ctx.fillRect(0, 0, W, H);
+
+    if (t < INTRO_MS) {
+      drawIntro(ctx, glCanvas, t / INTRO_MS, countries, cities);
+    } else if (t < stopsEnd) {
+      const seg = Math.min(stops.length - 1, Math.floor((t - INTRO_MS) / segMs));
+      const lt = (t - INTRO_MS - seg * segMs) / segMs;
+      drawStop(ctx, glCanvas, stops[seg], images.get(stops[seg].id), lt, seg, stops.length);
+    } else {
+      const lt = Math.min(1, (t - stopsEnd) / OUTRO_MS);
+      drawOutro(ctx, glCanvas, lt, countries, cities, distance, flags);
+    }
   };
 
-  const total = INTRO_MS + stops.length * SEG_MS + OUTRO_MS;
-  const overviewLng = avgLng(stops);
+  // ── Offline, frame-perfect encode (no lag, ignores device speed) ──────────
+  const encodeWithWebCodecs = async (codec: string): Promise<ReelResult> => {
+    const VE = getVideoEncoder()!;
+    const VF = getVideoFrame()!;
+    const frameCount = Math.max(1, Math.round((totalMs / 1000) * FPS));
+    const usPerFrame = 1_000_000 / FPS;
 
-  // Calm overview during the intro.
-  globe.pointOfView({ lat: 18, lng: overviewLng, altitude: 2.5 }, INTRO_MS);
+    const muxer = new Muxer({
+      target: new ArrayBufferTarget(),
+      video: { codec: 'avc', width: W, height: H },
+      fastStart: 'in-memory',
+    });
+    let encErr: unknown = null;
+    const encoder = new VE({
+      output: (chunk, meta) =>
+        (muxer as unknown as { addVideoChunk: (c: unknown, m: unknown) => void }).addVideoChunk(
+          chunk,
+          meta
+        ),
+      error: (e) => {
+        encErr = e;
+      },
+    });
+    encoder.configure({ codec, width: W, height: H, bitrate: 10_000_000, framerate: FPS });
 
-  try {
-    return await new Promise<ReelResult>((resolve, reject) => {
+    for (let i = 0; i < frameCount; i++) {
+      if (encErr) throw encErr;
+      renderFrame((i / FPS) * 1000);
+      const vf = new VF(canvas, {
+        timestamp: Math.round(i * usPerFrame),
+        duration: Math.round(usPerFrame),
+      });
+      encoder.encode(vf, { keyFrame: i % (FPS * 2) === 0 });
+      vf.close();
+      onProgress?.('Rendering…', Math.min(98, 10 + Math.round((i / frameCount) * 86)));
+
+      // Bound the encoder queue and let the page breathe so the UI stays alive.
+      if (encoder.encodeQueueSize > 24) {
+        while (encoder.encodeQueueSize > 8) await nextFrame();
+      } else if ((i & 7) === 0) {
+        await nextFrame();
+      }
+    }
+
+    await encoder.flush();
+    (muxer as unknown as { finalize: () => void }).finalize();
+    if (encErr) throw encErr;
+    const buffer = (muxer.target as ArrayBufferTarget).buffer;
+    onProgress?.('Finishing…', 100);
+    return { blob: new Blob([buffer], { type: 'video/mp4' }), mimeType: 'video/mp4', ext: 'mp4' };
+  };
+
+  // ── Real-time fallback (older devices without WebCodecs) ──────────────────
+  const encodeWithRecorder = (): Promise<ReelResult> => {
+    const stream = canvas.captureStream(FPS);
+    const recorder = new MediaRecorder(stream, {
+      mimeType: mime.mimeType,
+      videoBitsPerSecond: 12_000_000,
+    });
+    const chunks: BlobPart[] = [];
+    recorder.ondataavailable = (e) => {
+      if (e.data && e.data.size > 0) chunks.push(e.data);
+    };
+    return new Promise<ReelResult>((resolve, reject) => {
       recorder.onstop = () =>
         resolve({
           blob: new Blob(chunks, { type: mime.mimeType }),
@@ -284,14 +508,11 @@ export async function recordReel(
           ext: mime.ext,
         });
       recorder.onerror = () => reject(new Error('Recording failed.'));
-
       recorder.start();
       const begin = performance.now();
-      let startedSeg = -1; // -1 = intro, 0..n-1 stops, n = outro
-
       const frame = () => {
         const t = performance.now() - begin;
-        if (t >= total) {
+        if (t >= totalMs) {
           try {
             recorder.stop();
           } catch {
@@ -299,48 +520,40 @@ export async function recordReel(
           }
           return;
         }
-
-        // Decide phase and trigger the camera move once per segment boundary.
-        let label = 'Recording…';
-        if (t < INTRO_MS) {
-          label = 'Intro';
-        } else if (t < INTRO_MS + stops.length * SEG_MS) {
-          const seg = Math.floor((t - INTRO_MS) / SEG_MS);
-          if (seg !== startedSeg) {
-            startedSeg = seg;
-            flyToDestination(globe, stops[seg], { speed: FLY_SPEED });
-          }
-        } else if (startedSeg !== stops.length) {
-          startedSeg = stops.length;
-          globe.pointOfView({ lat: 18, lng: overviewLng, altitude: 2.8 }, OUTRO_MS);
-        }
-
-        // Force a fresh render so the WebGL backbuffer is valid for drawImage
-        // even without preserveDrawingBuffer (we read it synchronously here).
-        renderer.render(scene, cam);
-
-        ctx.fillStyle = BG;
-        ctx.fillRect(0, 0, W, H);
-
-        if (t < INTRO_MS) {
-          drawIntro(ctx, glCanvas, t / INTRO_MS, countries, cities);
-        } else if (t < INTRO_MS + stops.length * SEG_MS) {
-          const seg = Math.floor((t - INTRO_MS) / SEG_MS);
-          const lt = (t - INTRO_MS - seg * SEG_MS) / SEG_MS;
-          drawStop(ctx, glCanvas, stops[seg], images.get(stops[seg].id), lt, seg, stops.length);
-        } else {
-          const lt = (t - INTRO_MS - stops.length * SEG_MS) / OUTRO_MS;
-          drawOutro(ctx, glCanvas, lt, countries, cities, distance, flags);
-        }
-
-        onProgress?.(label, Math.min(100, 10 + Math.round((t / total) * 90)));
+        renderFrame(t);
+        onProgress?.('Recording…', Math.min(99, 10 + Math.round((t / totalMs) * 89)));
         requestAnimationFrame(frame);
       };
       requestAnimationFrame(frame);
     });
+  };
+
+  // Record against the bundled base Earth texture, NOT the streamed satellite
+  // tiles. The tile engine only loads imagery for wherever the camera is looking
+  // right now; as the scripted camera flies around the globe — especially in the
+  // fast offline render — tiles for newly-entered regions haven't streamed in
+  // yet, leaving the far side of the globe BLACK. The day texture is always
+  // present and lit everywhere, so the globe is solid in every frame. Restored
+  // in the finally below.
+  const tiles = globe as unknown as TileToggle;
+  const prevTileUrl =
+    typeof tiles.globeTileEngineUrl === 'function' ? tiles.globeTileEngineUrl() : undefined;
+  const canToggleTiles = typeof prevTileUrl === 'string' && prevTileUrl.length > 0;
+  if (canToggleTiles) tiles.globeTileEngineUrl!('');
+  useUiStore.getState().setCinematic(true);
+
+  // Let the globe apply the texture swap (kapsule digests props on a frame)
+  // before the first captured frame.
+  await nextFrame();
+  await nextFrame();
+  renderFrame(0);
+
+  try {
+    const codec = await pickAvcCodec();
+    return codec ? await encodeWithWebCodecs(codec) : await encodeWithRecorder();
   } finally {
-    // Restore full tile detail for normal interaction.
-    reelGlobe.globeTileEngineMaxLevel?.(prevTileLevel);
+    if (canToggleTiles) tiles.globeTileEngineUrl!(prevTileUrl as string);
+    useUiStore.getState().setCinematic(false);
   }
 }
 
