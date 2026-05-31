@@ -1,0 +1,38 @@
+.banner {
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: calc(var(--safe-bottom) + 72px);
+  z-index: 55;
+  width: calc(100% - 24px);
+  max-width: 420px;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: rgba(8, 16, 24, 0.92);
+  border: 1px solid rgba(56, 225, 255, 0.35);
+  color: rgba(234, 246, 255, 0.85);
+  font-size: 12px;
+  line-height: 1.45;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+}
+
+.text {
+  flex: 1;
+  margin: 0;
+}
+
+.text strong {
+  color: var(--color-cyan, #38e1ff);
+}
+
+.close {
+  flex-shrink: 0;
+  background: none;
+  border: none;
+  color: rgba(234, 246, 255, 0.6);
+  cursor: pointer;
+  padding: 2px;
+}

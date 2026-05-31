@@ -147,3 +147,55 @@
     transform: rotate(360deg);
   }
 }
+
+.mockBlock {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.mockLabel {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-size: 11px;
+  font-family: var(--font-mono, monospace);
+  color: var(--color-cyan, #38e1ff);
+  margin: 0;
+}
+
+.mockHint {
+  font-size: 11px;
+  color: rgba(234, 246, 255, 0.45);
+  margin: 0;
+}
+
+.mockList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: center;
+}
+
+.mockUserBtn {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.04);
+  color: #eaf6ff;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.mockUserMeta {
+  font-size: 10px;
+  color: rgba(234, 246, 255, 0.45);
+  font-family: var(--font-mono, monospace);
+}
