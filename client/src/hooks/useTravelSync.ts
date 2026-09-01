@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { useAuthStore } from '@/stores/authStore';
 import { useTripStore } from '@/stores/tripStore';
-import { syncMyTravel } from '@/services/travelSync';
+import { hydrateMyTravel, syncMyTravel } from '@/services/travelSync';
 
 /**
  * Keeps the backend copy of the user's travel history in step with the local
@@ -19,10 +19,13 @@ export function useTravelSync(): void {
     if (status !== 'ready' || !userId || viewing) return;
     if (timer.current) window.clearTimeout(timer.current);
     timer.current = window.setTimeout(() => {
-      syncMyTravel(userId).catch(() => {
-        /* best-effort; will retry on the next change */
+      (async () => {
+        await hydrateMyTravel(userId);
+        await syncMyTravel(userId);
+      })().catch((err) => {
+        console.error('[travelSync]', err);
       });
-    }, 1500);
+    }, 800);
     return () => {
       if (timer.current) window.clearTimeout(timer.current);
     };

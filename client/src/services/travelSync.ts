@@ -1,9 +1,10 @@
+import { nanoid } from 'nanoid';
 import { requireSupabase } from './supabase';
-import { updateMyStats } from './social';
+import { updateMyStats, getPlacesFor, heroUrl, type RemotePlace } from './social';
 import { loadPhotoSrc } from './photoSource';
 import { useTripStore } from '@/stores/tripStore';
 import { totalDistance, uniqueCountries, uniqueCities } from '@/utils/animation';
-import type { SortedDestination } from '@/types';
+import type { Destination, SortedDestination, Trip } from '@/types';
 
 const HERO_UPLOAD_WIDTH = 480; // small, shareable thumbnail
 const SYNCED_HEROES_KEY = 'tt_synced_heroes';
@@ -24,6 +25,57 @@ function loadSyncedHeroes(): Record<string, string> {
 
 function saveSyncedHeroes(map: Record<string, string>): void {
   localStorage.setItem(SYNCED_HEROES_KEY, JSON.stringify(map));
+}
+
+function remoteToDestination(p: RemotePlace): Destination {
+  const arrival = p.arrival ?? new Date().toISOString().slice(0, 10);
+  return {
+    id: p.id,
+    city: p.city ?? '',
+    country: p.country ?? '',
+    countryCode: p.country_code ?? '',
+    lat: p.lat,
+    lng: p.lng,
+    arrivalDate: arrival,
+    departureDate: p.departure ?? arrival,
+    heroUrl: heroUrl(p.hero_path) ?? undefined,
+  };
+}
+
+/**
+ * Pull this account's cloud places into the local globe. Phone and browser
+ * each have their own localStorage — without this, a library built on iOS
+ * never appears on the website (and an empty web client used to DELETE the
+ * cloud copy). Merges by place_key so neither side clobbers the other.
+ */
+export async function hydrateMyTravel(userId: string): Promise<void> {
+  const remote = await getPlacesFor(userId);
+  if (remote.length === 0) return;
+
+  const local = useTripStore.getState().getSortedDestinations();
+  const have = new Set(local.map(placeKey));
+  const missing = remote.filter((p) => !have.has(p.place_key));
+  if (missing.length === 0) return;
+
+  const extra = missing.map(remoteToDestination);
+  const trips = useTripStore.getState().trips;
+  if (trips.length === 0) {
+    const now = new Date().toISOString();
+    const trip: Trip = {
+      id: nanoid(),
+      name: 'My travels',
+      destinations: extra,
+      createdAt: now,
+      updatedAt: now,
+    };
+    useTripStore.getState().setTrips([trip]);
+    return;
+  }
+  const [first, ...rest] = trips;
+  useTripStore.getState().setTrips([
+    { ...first, destinations: [...first.destinations, ...extra], updatedAt: new Date().toISOString() },
+    ...rest,
+  ]);
 }
 
 async function dataUrlToBlob(dataUrl: string): Promise<Blob> {
@@ -87,10 +139,12 @@ export async function syncMyTravel(userId: string): Promise<void> {
 
   saveSyncedHeroes(synced);
 
-  if (rows.length > 0) {
-    const { error } = await sb.from('places').upsert(rows, { onConflict: 'user_id,place_key' });
-    if (error) throw error;
-  }
+  // An empty local library means "this device hasn't loaded yet", not "delete
+  // my account." Never prune or zero stats in that case — hydrate fills in.
+  if (rows.length === 0) return;
+
+  const { error } = await sb.from('places').upsert(rows, { onConflict: 'user_id,place_key' });
+  if (error) throw error;
 
   // Prune places that no longer exist locally. Delete by UUID id (place_key
   // contains commas, which would break an `in`-list filter).
