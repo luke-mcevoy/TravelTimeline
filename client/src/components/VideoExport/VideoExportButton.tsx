@@ -10,6 +10,7 @@ export function VideoExportButton() {
   const [state, setState] = useState<ExportState>('idle');
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState('');
+  const [downloadToken, setDownloadToken] = useState('');
   const [showPanel, setShowPanel] = useState(false);
   const getSortedDestinations = useTripStore((s) => s.getSortedDestinations);
 
@@ -63,6 +64,7 @@ export function VideoExportButton() {
                 if (data.type === 'progress') {
                   setProgress(data.pct);
                 } else if (data.type === 'complete') {
+                  setDownloadToken(data.token ?? '');
                   setState('done');
                 } else if (data.type === 'error') {
                   throw new Error(data.message);
@@ -82,7 +84,7 @@ export function VideoExportButton() {
   };
 
   const handleDownload = () => {
-    window.open('/api/download-video', '_blank');
+    window.open(`/api/download-video?token=${encodeURIComponent(downloadToken)}`, '_blank');
     setState('idle');
     setShowPanel(false);
   };

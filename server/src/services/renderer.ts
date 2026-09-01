@@ -6,6 +6,7 @@ import { existsSync } from 'fs';
 import { join } from 'path';
 import { tmpdir } from 'os';
 import type { Writable } from 'stream';
+import { renderClientUrl } from '../config.js';
 
 /**
  * Finds a Chrome/Chromium to drive. Puppeteer's own browser download is often
@@ -179,7 +180,7 @@ async function renderWithArgs(
     height = 1080,
     fps = 30,
     transitionMs = 2000,
-    clientUrl = 'http://localhost:5173/render',
+    clientUrl = renderClientUrl(),
   } = options;
 
   const framesPerTransition = Math.round((transitionMs / 1000) * fps);

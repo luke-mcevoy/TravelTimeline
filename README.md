@@ -105,9 +105,14 @@ On first launch (with no trips yet) the **Build Your Travel Story** panel opens 
 ### Production build
 
 ```bash
-npm run build          # builds client (static) and server (dist/)
-npm start --workspace=server   # serves the API from the compiled server
+npm run build     # builds client (static) and server (dist/)
+npm start         # one process: serves the client AND the API on :3001
 ```
+
+In production the server hosts the built client itself (same origin, SPA
+fallback included), so `http://localhost:3001` is the whole app. For Docker
+and cloud hosting (Render blueprint included), see
+[docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
 
 ---
 

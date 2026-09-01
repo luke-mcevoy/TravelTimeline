@@ -30,23 +30,21 @@ export function RenderView() {
   const containerRef = useRef<HTMLDivElement>(null);
   const globeRef = useRef<GlobeInstance | null>(null);
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [destinations, setDestinations] = useState<SortedDestination[]>([]);
+  // Injected by the Puppeteer renderer via evaluateOnNewDocument, so it's
+  // already present before React mounts.
+  const [destinations] = useState<SortedDestination[]>(
+    () => (win.__RENDER_DATA__ as SortedDestination[] | undefined) ?? []
+  );
   const [isReady, setIsReady] = useState(false);
 
   useEffect(() => {
-    const data = win.__RENDER_DATA__ as SortedDestination[] | undefined;
-    if (data && data.length > 0) {
-      setDestinations(data);
-    }
-  }, []);
-
-  useEffect(() => {
     if (!containerRef.current || globeRef.current || destinations.length === 0) return;
+    const container = containerRef.current;
 
     const w = (win.__RENDER_WIDTH__ as number) || 1920;
     const h = (win.__RENDER_HEIGHT__ as number) || 1080;
 
-    const globe = new Globe(containerRef.current)
+    const globe = new Globe(container)
       .width(w)
       .height(h)
       .globeImageUrl(GLOBE_IMAGE)
@@ -99,7 +97,7 @@ export function RenderView() {
     }, 2000);
 
     return () => {
-      if (containerRef.current) containerRef.current.innerHTML = '';
+      container.innerHTML = '';
       globeRef.current = null;
     };
   }, [destinations]);

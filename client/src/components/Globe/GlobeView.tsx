@@ -223,8 +223,9 @@ export function GlobeView() {
 
   useEffect(() => {
     if (!containerRef.current || globeRef.current) return;
+    const container = containerRef.current;
 
-    const globe = new Globe(containerRef.current)
+    const globe = new Globe(container)
       .globeImageUrl(GLOBE_IMAGE)
       .backgroundColor('rgba(0, 0, 0, 0)')
       .showAtmosphere(true)
@@ -276,8 +277,12 @@ export function GlobeView() {
     let tilesTuned = false;
     const sharpenInterval = window.setInterval(() => {
       let done = true;
-      if (mat.map) mat.map.anisotropy = maxAnisotropy, (mat.map.needsUpdate = true);
-      else done = false;
+      if (mat.map) {
+        mat.map.anisotropy = maxAnisotropy;
+        mat.map.needsUpdate = true;
+      } else {
+        done = false;
+      }
       // The bump map only exists on web (skipped on native for performance).
       if (mat.bumpMap) {
         mat.bumpMap.anisotropy = maxAnisotropy;
@@ -435,9 +440,7 @@ export function GlobeView() {
       panDisposed = true;
       if (panRaf) cancelAnimationFrame(panRaf);
       setGlobeInstance(null);
-      if (containerRef.current) {
-        containerRef.current.innerHTML = '';
-      }
+      container.innerHTML = '';
       globeRef.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps

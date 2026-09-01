@@ -1,6 +1,6 @@
 import Database from 'better-sqlite3';
 import { homedir } from 'os';
-import { join } from 'path';
+import { join, resolve, sep } from 'path';
 import { existsSync } from 'fs';
 import { mkdir, readFile } from 'fs/promises';
 import { execFile } from 'child_process';
@@ -384,9 +384,10 @@ export function readPhotosWithLocation(yearsBack: number = 5): PhotoRecord[] {
   // "Optimize Mac Storage" many originals live in the cloud, and we can't make
   // a thumbnail from a file we don't have — including them would surface broken
   // images in the story.
-  const available = mapped.filter((p) =>
-    existsSync(getOriginalPhotoPath(p.directory, p.filename))
-  );
+  const available = mapped.filter((p) => {
+    const path = getOriginalPhotoPath(p.directory, p.filename);
+    return path !== null && existsSync(path);
+  });
 
   // Score beauty relative to THIS user's library (self-calibrating, learned
   // from their own taste) rather than against hard-coded thresholds.
@@ -1034,8 +1035,15 @@ function tripNameFor(destinations: InferredDestination[]): string {
 
 // ─── Photo serving ───────────────────────────────────────────────────
 
-export function getOriginalPhotoPath(directory: string, filename: string): string {
-  return join(ORIGINALS_PATH, directory, filename);
+/**
+ * Resolves a photo path and guarantees it stays inside the Photos originals
+ * directory (join() would happily escape it given absolute or crafted
+ * segments). Returns null for anything outside.
+ */
+export function getOriginalPhotoPath(directory: string, filename: string): string | null {
+  const resolved = resolve(ORIGINALS_PATH, directory, filename);
+  if (!resolved.startsWith(ORIGINALS_PATH + sep)) return null;
+  return resolved;
 }
 
 export async function getPhotoThumbnail(
@@ -1044,7 +1052,7 @@ export async function getPhotoThumbnail(
   width: number = 400
 ): Promise<{ buffer: Buffer; mimeType: string } | null> {
   const originalPath = getOriginalPhotoPath(directory, filename);
-  if (!existsSync(originalPath)) return null;
+  if (originalPath === null || !existsSync(originalPath)) return null;
 
   const hash = createHash('md5').update(`${directory}/${filename}/${width}`).digest('hex');
   const thumbPath = join(THUMB_CACHE_DIR, `${hash}.jpg`);

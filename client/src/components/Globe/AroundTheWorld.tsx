@@ -105,7 +105,6 @@ function EarthLeg({
   const [runId, setRunId] = useState(0);
 
   useEffect(() => {
-    setDone(false);
     const totalAngle = laps * 2 * Math.PI;
     // Spin briskly, but cap the run so big travellers don't wait forever.
     const duration = Math.min(Math.max(laps * 850, 2400), 7500);
@@ -194,7 +193,10 @@ function EarthLeg({
         <div className={styles.actions}>
           <button
             className={styles.replayBtn}
-            onClick={() => setRunId((n) => n + 1)}
+            onClick={() => {
+              setDone(false);
+              setRunId((n) => n + 1);
+            }}
           >
             <RotateCw size={14} />
             Replay
@@ -230,7 +232,6 @@ function MoonLeg({
   const reachedMoon = fraction >= 1;
 
   useEffect(() => {
-    setDone(false);
     const duration = 2600;
     const easeOutCubic = (t: number) => 1 - Math.pow(1 - t, 3);
 
@@ -344,7 +345,10 @@ function MoonLeg({
           </button>
           <button
             className={styles.replayBtn}
-            onClick={() => setRunId((n) => n + 1)}
+            onClick={() => {
+              setDone(false);
+              setRunId((n) => n + 1);
+            }}
           >
             <RotateCw size={14} />
             Replay

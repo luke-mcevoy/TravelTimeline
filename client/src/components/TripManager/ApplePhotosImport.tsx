@@ -55,8 +55,11 @@ export function ApplePhotosImport() {
     if (autoOpenedRef.current || existingTrips.length > 0) return;
     autoOpenedRef.current = true;
     if (isNativePlatform) {
-      setShowModal(true);
-      setState('ready');
+      // Deferred so the mount render commits before the modal state flips.
+      queueMicrotask(() => {
+        setShowModal(true);
+        setState('ready');
+      });
       return;
     }
     (async () => {

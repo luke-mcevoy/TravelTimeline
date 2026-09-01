@@ -1,9 +1,22 @@
 import { Router, type Request, type Response } from 'express';
+import { randomUUID } from 'crypto';
 import { renderVideo, type RenderOptions } from '../services/renderer.js';
+import { renderClientUrl } from '../config.js';
 
 export const videoRouter = Router();
 
+// Rendering spawns a full Chrome + FFmpeg pipeline; cap concurrency so a
+// handful of simultaneous requests can't exhaust the host.
+const MAX_CONCURRENT_RENDERS = Number(process.env.MAX_CONCURRENT_RENDERS) || 2;
+let activeRenders = 0;
+
 videoRouter.post('/render-video', async (req: Request, res: Response) => {
+  if (activeRenders >= MAX_CONCURRENT_RENDERS) {
+    res.status(429).json({ error: 'Too many renders in progress. Try again in a minute.' });
+    return;
+  }
+
+  activeRenders++;
   try {
     const { destinations, width, height, fps, speed } = req.body;
 
@@ -18,6 +31,7 @@ videoRouter.post('/render-video', async (req: Request, res: Response) => {
       height: height || 1080,
       fps: fps || 30,
       transitionMs: speed ? 2000 / speed : 2000,
+      clientUrl: renderClientUrl(),
     };
 
     res.setHeader('Content-Type', 'text/event-stream');
@@ -32,21 +46,20 @@ videoRouter.post('/render-video', async (req: Request, res: Response) => {
 
     const videoBuffer = await renderVideo(options, sendProgress);
 
+    // The client downloads the file in a second request, claimed by a
+    // single-use token (req.ip is unreliable behind NAT/proxies).
+    const token = randomUUID();
+    storeVideo(token, videoBuffer);
+
     res.write(
       `data: ${JSON.stringify({
         type: 'complete',
         size: videoBuffer.length,
+        token,
       })}\n\n`
     );
 
     res.end();
-
-    // The client will make a second request to download the actual file
-    // Store it temporarily
-    videoCache.set(req.ip || 'default', {
-      buffer: videoBuffer,
-      createdAt: Date.now(),
-    });
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Unknown error';
     console.error('Render failed:', message);
@@ -57,11 +70,14 @@ videoRouter.post('/render-video', async (req: Request, res: Response) => {
       res.write(`data: ${JSON.stringify({ type: 'error', message })}\n\n`);
       res.end();
     }
+  } finally {
+    activeRenders--;
   }
 });
 
 videoRouter.get('/download-video', (req: Request, res: Response) => {
-  const entry = videoCache.get(req.ip || 'default');
+  const token = typeof req.query.token === 'string' ? req.query.token : '';
+  const entry = token ? videoCache.get(token) : undefined;
   if (!entry) {
     res.status(404).json({ error: 'No video available. Render one first.' });
     return;
@@ -72,11 +88,23 @@ videoRouter.get('/download-video', (req: Request, res: Response) => {
   res.setHeader('Content-Length', entry.buffer.length);
   res.send(entry.buffer);
 
-  videoCache.delete(req.ip || 'default');
+  videoCache.delete(token);
 });
 
-// Simple in-memory cache for rendered videos (auto-expire after 5 min)
+// In-memory cache of rendered videos awaiting download. Entries are
+// single-use, expire after 5 minutes, and the cache is bounded so queued
+// videos can't exhaust memory.
+const MAX_CACHED_VIDEOS = 5;
 const videoCache = new Map<string, { buffer: Buffer; createdAt: number }>();
+
+function storeVideo(token: string, buffer: Buffer) {
+  while (videoCache.size >= MAX_CACHED_VIDEOS) {
+    const oldest = videoCache.keys().next().value;
+    if (oldest === undefined) break;
+    videoCache.delete(oldest);
+  }
+  videoCache.set(token, { buffer, createdAt: Date.now() });
+}
 
 setInterval(() => {
   const now = Date.now();
@@ -85,4 +113,4 @@ setInterval(() => {
       videoCache.delete(key);
     }
   }
-}, 60_000);
+}, 60_000).unref();

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { ChevronLeft, ChevronRight, X, Image as ImageIcon } from 'lucide-react';
 import { useTripStore } from '@/stores/tripStore';
 import { useUiStore } from '@/stores/uiStore';
@@ -17,17 +17,18 @@ export function FeaturedDestination() {
   const showPhotoCard = useUiStore((s) => s.showPhotoCard);
   const setShowPhotoCard = useUiStore((s) => s.setShowPhotoCard);
   const [photoIndex, setPhotoIndex] = useState(0);
-  const prevDestId = useRef<string | null>(null);
+  const [prevDestId, setPrevDestId] = useState<string | null>(null);
 
   const destinations = getSortedDestinations();
   const current = destinations[animation.currentDestinationIndex];
 
-  useEffect(() => {
-    if (current && current.id !== prevDestId.current) {
-      setPhotoIndex(0);
-      prevDestId.current = current.id;
-    }
-  }, [current]);
+  // Reset the photo carousel when the destination changes — done during
+  // render (React's "adjusting state when props change" pattern) so the reset
+  // is visible in the same paint as the new destination.
+  if (current && current.id !== prevDestId) {
+    setPrevDestId(current.id);
+    setPhotoIndex(0);
+  }
 
   const photos = current?.serverPhotos ?? [];
   const clampedIndex = Math.min(photoIndex, Math.max(0, photos.length - 1));
@@ -47,17 +48,16 @@ export function FeaturedDestination() {
   const [incomingSrc, setIncomingSrc] = useState<string | null>(null);
   const [incomingReady, setIncomingReady] = useState(false);
 
-  useEffect(() => {
-    if (!src) return;
+  // Stage the crossfade during render (guarded setState, not an effect) so
+  // the incoming layer exists in the same paint as the src change.
+  if (src) {
     if (committedSrc == null) {
       setCommittedSrc(src);
-      return;
-    }
-    if (src !== committedSrc && src !== incomingSrc) {
+    } else if (src !== committedSrc && src !== incomingSrc) {
       setIncomingSrc(src);
       setIncomingReady(false);
     }
-  }, [src, committedSrc, incomingSrc]);
+  }
 
   // Fade duration tracks playback speed so fast-forward (4×) stays snappy
   // instead of smearing through a long dark transition.

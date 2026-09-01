@@ -32,9 +32,16 @@ Use **tmux** for long-running `npm run dev` (both processes via `concurrently`).
 
 | Task | Command | Notes |
 |------|---------|--------|
-| Lint | `npm run lint --workspace=client` | ESLint; repo may have existing `react-hooks/set-state-in-effect` findings |
+| Lint | `npm run lint` | ESLint on `client/` (currently clean — keep it that way) |
 | Build | `npm run build` | `tsc -b && vite build` (client) + `tsc` (server) |
-| Tests | — | No unit/e2e test script in `package.json` today |
+| Start (prod) | `npm start` | One process: serves client build + API on `PORT` (default 3001) |
+| Tests | — | No unit/e2e test script in `package.json` today; CI runs lint + build + Docker smoke test |
+
+### Deployment
+
+Single deployable unit: the Express server hosts the built client with an SPA
+fallback. `Dockerfile` + `render.yaml` at the root; full guide in
+`docs/DEPLOYMENT.md`.
 
 ### Optional: Supabase social features
 

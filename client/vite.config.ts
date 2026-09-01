@@ -10,6 +10,19 @@ export default defineConfig({
       '@': path.resolve(__dirname, './src'),
     },
   },
+  build: {
+    rollupOptions: {
+      output: {
+        // Split the heavy, rarely-changing vendor stacks into their own
+        // chunks so app-code changes don't re-download three.js et al.
+        manualChunks: {
+          globe: ['globe.gl', 'three'],
+          react: ['react', 'react-dom'],
+          supabase: ['@supabase/supabase-js'],
+        },
+      },
+    },
+  },
   server: {
     proxy: {
       '/api': {

@@ -1,0 +1,15 @@
+node_modules
+**/node_modules
+**/dist
+.git
+.cursor
+client/ios
+docs/screenshots
+scripts
+*.mp4
+*.log
+.DS_Store
+**/.DS_Store
+**/.env
+**/.env.*
+!**/.env.example
