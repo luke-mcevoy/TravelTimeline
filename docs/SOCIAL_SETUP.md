@@ -7,8 +7,8 @@ keys — without them the app runs exactly as before (local single-user).
 ## What got built
 
 - **Backend:** Supabase (Postgres + Auth + Storage + Row-Level Security).
-- **Auth:** Sign in with Apple (native iOS) + email one-time-code fallback (works in
-  the Simulator / on web for testing).
+- **Auth:** Sign in with Apple (native iOS) + email/password on web. A one-time
+  email code is a fallback for accounts that never set a password.
 - **Profiles:** public `@handle` + denormalized stats (countries, cities, distance).
 - **Friends:** mutual request/accept graph; search by handle.
 - **Leaderboards:** **Global** + **Friends**, ranked by **countries** or **distance**.
@@ -49,8 +49,9 @@ live origin (`https://travel-timeline.onrender.com`).
 
 ## 3. Enable auth providers in Supabase
 
-- **Email:** Authentication → Providers → Email → enable **Email OTP** (and turn off
-  "Confirm email" for the simplest test flow). This is what you'll use in the Simulator.
+- **Email:** Authentication → Providers → Email → leave email enabled (password
+  sign-in is the web default). Turn off **Confirm email** for the simplest test
+  flow. Email OTP can stay on as a fallback.
 - **Apple:** Authentication → Providers → **Apple** → enable it. For native iOS you
   generally only need the provider enabled; the identity token is verified against
   your Bundle ID. (For the web flow you'd also configure a Services ID + key.)

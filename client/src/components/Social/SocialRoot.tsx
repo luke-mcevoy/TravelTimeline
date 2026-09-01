@@ -14,6 +14,7 @@ import { ViewerBanner } from './ViewerBanner';
  */
 export function SocialRoot() {
   const status = useAuthStore((s) => s.status);
+  const offerPassword = useAuthStore((s) => s.offerPassword);
   const init = useAuthStore((s) => s.init);
 
   useEffect(() => {
@@ -23,7 +24,7 @@ export function SocialRoot() {
   useTravelSync();
 
   if (!socialEnabled) return null;
-  if (status !== 'ready') return <AuthGate />;
+  if (status !== 'ready' || offerPassword) return <AuthGate />;
 
   return (
     <>
