@@ -186,7 +186,10 @@ export function SocialPanel() {
               </button>
             </div>
 
-            <div className={styles.body}>
+            <div
+              className={styles.body}
+              onWheel={(e) => e.stopPropagation()}
+            >
               {tab === 'friends' ? (
                 <>
                   <div className={styles.searchRow}>
