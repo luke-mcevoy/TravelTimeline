@@ -4,7 +4,9 @@ services:
   - type: web
     name: travel-timeline
     runtime: docker
-    plan: starter
+    # Free tier: 512 MB RAM, spins down when idle. Core app runs fine; the
+    # server-side video exporter (Chromium) may need `starter` to avoid OOM.
+    plan: free
     healthCheckPath: /health
     envVars:
       - key: NODE_ENV
