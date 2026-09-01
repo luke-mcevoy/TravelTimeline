@@ -1,7 +1,7 @@
 import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
-  appId: 'com.traveltimeline.app',
+  appId: 'com.lukemcevoy.traveltimeline',
   appName: 'TravelTimeline',
   webDir: 'dist',
   ios: {
