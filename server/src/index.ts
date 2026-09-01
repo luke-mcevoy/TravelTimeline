@@ -60,16 +60,19 @@ function injectClientConfig(html: string): string {
   return html.replace('<head>', `<head>\n    ${tag}`);
 }
 
+function readIndexHtml(): string {
+  return injectClientConfig(readFileSync(join(CLIENT_DIST, 'index.html'), 'utf8'));
+}
+
 // Single-deployable-unit mode: when a client build exists, host it here with
 // an SPA fallback (the client routes are '/' and '/render').
 if (clientBuildAvailable()) {
-  const indexHtml = injectClientConfig(
-    readFileSync(join(CLIENT_DIST, 'index.html'), 'utf8')
-  );
   app.use(express.static(CLIENT_DIST, { index: false }));
-  app.get(/^\/(?!api(\/|$)).*/, (_req, res) => {
+  // Don't treat missing /assets/* as the SPA — that returns HTML as "JS" and
+  // the browser paints a blank white page.
+  app.get(/^\/(?!api(\/|$)|assets(\/|$)|icons(\/|$)|geo(\/|$)).*/, (_req, res) => {
     res.setHeader('Cache-Control', 'no-store');
-    res.type('html').send(indexHtml);
+    res.type('html').send(readIndexHtml());
   });
   console.log(`Serving client build from ${CLIENT_DIST}`);
 } else {

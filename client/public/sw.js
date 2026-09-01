@@ -1,7 +1,7 @@
 /* App-shell service worker. Caches the HTML/JS/CSS/icons so an installed
    home-screen app launches instantly; API and map tiles stay network-first. */
-const CACHE = 'tt-shell-v1';
-const PRECACHE = ['/', '/manifest.webmanifest', '/icons/icon-192.png', '/icons/icon-512.png'];
+const CACHE = 'tt-shell-v2';
+const PRECACHE = ['/manifest.webmanifest', '/icons/icon-192.png', '/icons/icon-512.png'];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
@@ -24,6 +24,11 @@ self.addEventListener('fetch', (event) => {
   const url = new URL(req.url);
   if (url.origin !== self.location.origin) return;
   if (url.pathname.startsWith('/api/')) return;
+  // Never cache the HTML shell — a stale '/' plus new hashed JS is a white screen.
+  if (req.mode === 'navigate' || url.pathname === '/') {
+    event.respondWith(fetch(req));
+    return;
+  }
 
   event.respondWith(
     fetch(req)
