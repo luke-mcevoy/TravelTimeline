@@ -9,22 +9,26 @@ import type { Destination, SortedDestination, Trip } from '@/types';
 const HERO_UPLOAD_WIDTH = 480; // small, shareable thumbnail
 const SYNCED_HEROES_KEY = 'tt_synced_heroes';
 
+function heroesKey(userId: string): string {
+  return `${SYNCED_HEROES_KEY}:${userId}`;
+}
+
 /** Stable id for a place so re-syncs upsert instead of duplicating. */
 function placeKey(d: SortedDestination): string {
   const cc = d.countryCode || 'XX';
   return `${cc}:${d.lat.toFixed(2)},${d.lng.toFixed(2)}`;
 }
 
-function loadSyncedHeroes(): Record<string, string> {
+function loadSyncedHeroes(userId: string): Record<string, string> {
   try {
-    return JSON.parse(localStorage.getItem(SYNCED_HEROES_KEY) || '{}');
+    return JSON.parse(localStorage.getItem(heroesKey(userId)) || '{}');
   } catch {
     return {};
   }
 }
 
-function saveSyncedHeroes(map: Record<string, string>): void {
-  localStorage.setItem(SYNCED_HEROES_KEY, JSON.stringify(map));
+function saveSyncedHeroes(userId: string, map: Record<string, string>): void {
+  localStorage.setItem(heroesKey(userId), JSON.stringify(map));
 }
 
 function remoteToDestination(p: RemotePlace): Destination {
@@ -92,7 +96,7 @@ export async function syncMyTravel(userId: string): Promise<void> {
   const sb = requireSupabase();
   const dests = useTripStore.getState().getSortedDestinations();
 
-  const synced = loadSyncedHeroes();
+  const synced = loadSyncedHeroes(userId);
   const rows: Array<Record<string, unknown>> = [];
   const seenKeys = new Set<string>();
 
@@ -137,7 +141,7 @@ export async function syncMyTravel(userId: string): Promise<void> {
     });
   }
 
-  saveSyncedHeroes(synced);
+  saveSyncedHeroes(userId, synced);
 
   // An empty local library means "this device hasn't loaded yet", not "delete
   // my account." Never prune or zero stats in that case — hydrate fills in.

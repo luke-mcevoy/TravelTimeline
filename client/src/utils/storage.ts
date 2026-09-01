@@ -1,10 +1,14 @@
 import type { Trip } from '@/types';
 
-const STORAGE_KEY = 'travel-timeline-trips';
+const GUEST_KEY = 'travel-timeline-trips';
 
-export function loadTrips(): Trip[] {
+function tripsKey(ownerId: string | null): string {
+  return ownerId ? `${GUEST_KEY}:${ownerId}` : GUEST_KEY;
+}
+
+export function loadTrips(ownerId: string | null = null): Trip[] {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = localStorage.getItem(tripsKey(ownerId));
     if (!raw) return [];
     return JSON.parse(raw) as Trip[];
   } catch {
@@ -12,8 +16,8 @@ export function loadTrips(): Trip[] {
   }
 }
 
-export function saveTrips(trips: Trip[]): void {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(trips));
+export function saveTrips(trips: Trip[], ownerId: string | null = null): void {
+  localStorage.setItem(tripsKey(ownerId), JSON.stringify(trips));
 }
 
 export function exportTripsToJson(trips: Trip[]): void {

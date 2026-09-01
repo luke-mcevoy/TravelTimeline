@@ -5,8 +5,8 @@ import { hydrateMyTravel, syncMyTravel } from '@/services/travelSync';
 
 /**
  * Keeps the backend copy of the user's travel history in step with the local
- * one. Runs once when signed in, then again (debounced) whenever the user's own
- * trips change. Never runs while viewing a friend's globe.
+ * one. Switches the in-memory library to that account first so a new sign-in
+ * never inherits the Mac's guest/Photos trips (and then uploads them).
  */
 export function useTravelSync(): void {
   const status = useAuthStore((s) => s.status);
@@ -16,7 +16,15 @@ export function useTravelSync(): void {
   const timer = useRef<number | null>(null);
 
   useEffect(() => {
+    if (status === 'loading') return;
+    const owner = status === 'ready' && userId ? userId : null;
+    useTripStore.getState().switchOwner(owner);
+  }, [status, userId]);
+
+  useEffect(() => {
     if (status !== 'ready' || !userId || viewing) return;
+    const owner = useTripStore.getState().ownerId;
+    if (owner !== userId) return;
     if (timer.current) window.clearTimeout(timer.current);
     timer.current = window.setTimeout(() => {
       (async () => {

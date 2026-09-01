@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { nanoid } from 'nanoid';
 import type { Trip, Destination, AnimationState, SortedDestination } from '@/types';
 import { loadTrips, saveTrips } from '@/utils/storage';
+import { socialEnabled } from '@/services/supabase';
 
 export interface ViewingProfile {
   handle: string;
@@ -19,6 +20,10 @@ interface TripStore {
   viewerTrips: Trip[] | null;
   viewProfile: (profile: ViewingProfile, trips: Trip[]) => void;
   exitViewer: () => void;
+  /** Which account currently owns `trips`. null = signed-out guest on this Mac.
+   *  undefined = not bound yet (avoid flashing the previous person's map). */
+  ownerId: string | null | undefined;
+  switchOwner: (ownerId: string | null) => void;
 
   // Trip CRUD
   addTrip: (name: string) => string;
@@ -50,8 +55,9 @@ const defaultAnimation: AnimationState = {
   arcProgress: 0,
 };
 
-function persist(trips: Trip[]) {
-  saveTrips(trips);
+function persist(trips: Trip[], ownerId: string | null | undefined) {
+  if (ownerId === undefined) return;
+  saveTrips(trips, ownerId);
 }
 
 /**
@@ -72,11 +78,26 @@ function hasValidCoords(d: { lat: number; lng: number }): boolean {
 }
 
 export const useTripStore = create<TripStore>((set, get) => ({
-  trips: loadTrips(),
+  trips: socialEnabled ? [] : loadTrips(null),
+  ownerId: socialEnabled ? undefined : null,
   selectedTripId: null,
   animation: { ...defaultAnimation },
   viewing: null,
   viewerTrips: null,
+
+  switchOwner: (ownerId) => {
+    const prev = get().ownerId;
+    if (prev === ownerId) return;
+    if (prev !== undefined) saveTrips(get().trips, prev);
+    set({
+      ownerId,
+      trips: loadTrips(ownerId),
+      selectedTripId: null,
+      animation: { ...defaultAnimation },
+      viewing: null,
+      viewerTrips: null,
+    });
+  },
 
   viewProfile: (profile, trips) =>
     set({ viewing: profile, viewerTrips: trips, animation: { ...defaultAnimation } }),
@@ -95,7 +116,7 @@ export const useTripStore = create<TripStore>((set, get) => ({
     };
     set((state) => {
       const trips = [...state.trips, trip];
-      persist(trips);
+      persist(trips, get().ownerId);
       return { trips, selectedTripId: id };
     });
     return id;
@@ -108,7 +129,7 @@ export const useTripStore = create<TripStore>((set, get) => ({
           ? { ...t, ...updates, updatedAt: new Date().toISOString() }
           : t
       );
-      persist(trips);
+      persist(trips, get().ownerId);
       return { trips };
     });
   },
@@ -116,7 +137,7 @@ export const useTripStore = create<TripStore>((set, get) => ({
   deleteTrip: (id) => {
     set((state) => {
       const trips = state.trips.filter((t) => t.id !== id);
-      persist(trips);
+      persist(trips, get().ownerId);
       return {
         trips,
         selectedTripId: state.selectedTripId === id ? null : state.selectedTripId,
@@ -125,7 +146,7 @@ export const useTripStore = create<TripStore>((set, get) => ({
   },
 
   setTrips: (trips) => {
-    persist(trips);
+    persist(trips, get().ownerId);
     set({ trips });
   },
 
@@ -141,7 +162,7 @@ export const useTripStore = create<TripStore>((set, get) => ({
           updatedAt: new Date().toISOString(),
         };
       });
-      persist(trips);
+      persist(trips, get().ownerId);
       return { trips };
     });
   },
@@ -158,7 +179,7 @@ export const useTripStore = create<TripStore>((set, get) => ({
           updatedAt: new Date().toISOString(),
         };
       });
-      persist(trips);
+      persist(trips, get().ownerId);
       return { trips };
     });
   },
@@ -173,7 +194,7 @@ export const useTripStore = create<TripStore>((set, get) => ({
           updatedAt: new Date().toISOString(),
         };
       });
-      persist(trips);
+      persist(trips, get().ownerId);
       return { trips };
     });
   },
@@ -187,7 +208,7 @@ export const useTripStore = create<TripStore>((set, get) => ({
         dests.splice(toIndex, 0, moved);
         return { ...t, destinations: dests, updatedAt: new Date().toISOString() };
       });
-      persist(trips);
+      persist(trips, get().ownerId);
       return { trips };
     });
   },
