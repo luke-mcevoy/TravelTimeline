@@ -42,6 +42,11 @@ VITE_APPLE_REDIRECT_URI=                                # leave blank for native
 
 Then `npm run build && npx cap sync ios`.
 
+On the **hosted web / PWA** (Render), set `SUPABASE_URL` and `SUPABASE_ANON_KEY`
+as **runtime** environment variables instead — the server injects them into the
+page, so you don't need a rebuild. Also set the Supabase **Site URL** to the
+live origin (`https://travel-timeline.onrender.com`).
+
 ## 3. Enable auth providers in Supabase
 
 - **Email:** Authentication → Providers → Email → enable **Email OTP** (and turn off

@@ -49,12 +49,27 @@
 html, body, #root {
   width: 100%;
   height: 100%;
+  height: 100dvh;
+  min-height: 100dvh;
   overflow: hidden;
   background-color: var(--color-void);
   color: var(--color-text);
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
+  -webkit-tap-highlight-color: transparent;
+}
+
+input, textarea {
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+/* iOS standalone (Add to Home Screen) uses a fixed viewport so the URL bar
+   doesn't steal height after the first interaction. */
+html, body {
+  position: fixed;
+  inset: 0;
 }
 
 /* Deep-space backdrop with subtle nebula glow */

@@ -38,24 +38,31 @@ docker run -p 3001:3001 travel-timeline
 ```
 
 The image includes Chromium (for the video exporter) and sets
-`RENDER_FORCE_SOFTWARE=1` since containers have no GPU. To bake in the
-Supabase social layer:
+`RENDER_FORCE_SOFTWARE=1` since containers have no GPU. Enable social at
+**runtime** (no rebuild) by passing the same keys you keep in
+`client/.env.local`:
 
 ```bash
-docker build \
-  --build-arg VITE_SUPABASE_URL=https://xyz.supabase.co \
-  --build-arg VITE_SUPABASE_ANON_KEY=eyJ... \
-  -t travel-timeline .
+docker run -p 3001:3001 \
+  -e SUPABASE_URL=https://xyz.supabase.co \
+  -e SUPABASE_ANON_KEY=eyJ... \
+  travel-timeline
 ```
 
 ## Option 3 — Render.com (one click)
 
 `render.yaml` at the repo root is a Render blueprint. Create a new
 Blueprint instance pointing at this repo and Render builds the Dockerfile
-and wires the health check (`/health`) automatically. Set the
-`VITE_SUPABASE_*` env vars in the dashboard if you want social features
-(Render exposes env vars to the Docker build, where the Dockerfile declares
-matching `ARG`s).
+and wires the health check (`/health`) automatically.
+
+**To turn on accounts / friends / leaderboards:** in the Render service →
+**Environment**, set `SUPABASE_URL` and `SUPABASE_ANON_KEY` (copy from
+`client/.env.local`). Then in the Supabase dashboard → **Authentication →
+URL Configuration**, set **Site URL** to your Render URL
+(`https://travel-timeline.onrender.com`) so email login codes work.
+
+The live site is also a **PWA**: on iPhone, open it in Safari → Share →
+**Add to Home Screen**. It launches full-screen like a native app.
 
 Any other Docker host (Fly.io, Railway, a VPS) works the same way — the
 only contract is: run the container, route traffic to `PORT`.
@@ -75,14 +82,16 @@ only contract is: run the container, route traffic to `PORT`.
 | `MAX_CONCURRENT_RENDERS` | `2` | Cap on simultaneous video renders |
 | `PUPPETEER_EXECUTABLE_PATH` | auto-detected | Chrome/Chromium binary for video export |
 | `FFMPEG_PATH` | bundled `ffmpeg-static` | FFmpeg override |
+| `SUPABASE_URL` | — | Enables social (accounts, friends, leaderboards) |
+| `SUPABASE_ANON_KEY` | — | Supabase anon key (public by design; RLS enforces access) |
 
-### Client (build time — baked into the bundle by Vite)
+### Client (local dev — `client/.env.local`)
 
 | Variable | Purpose |
 | --- | --- |
-| `VITE_SUPABASE_URL` | Supabase project URL (omit both to disable social) |
-| `VITE_SUPABASE_ANON_KEY` | Supabase anon key |
-| `VITE_APPLE_CLIENT_ID` / `VITE_APPLE_REDIRECT_URI` | Sign in with Apple (native iOS only) |
+| `VITE_SUPABASE_URL` | Same as `SUPABASE_URL`; used by Vite in `npm run dev` |
+| `VITE_SUPABASE_ANON_KEY` | Same as `SUPABASE_ANON_KEY` |
+| `VITE_APPLE_CLIENT_ID` / `VITE_APPLE_REDIRECT_URI` | Sign in with Apple (native iOS / Capacitor only) |
 
 Supabase setup (schema, auth providers) is documented in
 [`SOCIAL_SETUP.md`](./SOCIAL_SETUP.md).

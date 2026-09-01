@@ -21,7 +21,9 @@ export function AuthGate() {
 
   const [email, setEmail] = useState('');
   const [code, setCode] = useState('');
-  const [showEmail, setShowEmail] = useState(false);
+  // Web (phones included) has no Sign in with Apple — open the email OTP
+  // form immediately so the first screen is actually usable.
+  const [showEmail, setShowEmail] = useState(!isNativePlatform);
   const [handle, setHandle] = useState('');
   const [name, setName] = useState('');
 

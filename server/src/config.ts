@@ -29,3 +29,19 @@ export function renderClientUrl(): string {
     ? `http://localhost:${PORT}/render`
     : 'http://localhost:5173/render';
 }
+
+/**
+ * Public client config injected into index.html at serve time. Lets a hosted
+ * deploy enable the Supabase social layer via runtime env vars (no rebuild).
+ * The anon key is designed to be public — RLS is the real access control.
+ */
+export function publicClientConfig(): {
+  supabaseUrl: string;
+  supabaseAnonKey: string;
+} {
+  return {
+    supabaseUrl: process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '',
+    supabaseAnonKey:
+      process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || '',
+  };
+}

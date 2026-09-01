@@ -14,9 +14,9 @@ services:
       # Headless cloud hosts have no GPU; force the SwiftShader WebGL path.
       - key: RENDER_FORCE_SOFTWARE
         value: "1"
-      # Optional: enable the Supabase social layer (also needs the same
-      # values as Docker build args so they're baked into the client bundle).
-      # - key: VITE_SUPABASE_URL
-      #   sync: false
-      # - key: VITE_SUPABASE_ANON_KEY
-      #   sync: false
+      # Social layer — set these in the Render dashboard (runtime, no rebuild).
+      # Values live in client/.env.local; never commit the anon key to git.
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_ANON_KEY
+        sync: false

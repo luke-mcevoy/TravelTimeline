@@ -1,9 +1,15 @@
 import express from 'express';
 import cors from 'cors';
+import { readFileSync } from 'fs';
 import { join } from 'path';
 import { videoRouter } from './routes/video.js';
 import { applePhotosRouter } from './routes/applePhotos.js';
-import { PORT, CLIENT_DIST, clientBuildAvailable } from './config.js';
+import {
+  PORT,
+  CLIENT_DIST,
+  clientBuildAvailable,
+  publicClientConfig,
+} from './config.js';
 
 const app = express();
 
@@ -27,12 +33,29 @@ app.get('/health', (_req, res) => {
   res.json({ status: 'ok' });
 });
 
+app.get('/api/config', (_req, res) => {
+  res.json(publicClientConfig());
+});
+
+function injectClientConfig(html: string): string {
+  const json = JSON.stringify(publicClientConfig()).replace(/</g, '\\u003c');
+  const tag = `<script>window.__TT_CONFIG__=${json};</script>`;
+  if (html.includes('<!--TT_CONFIG-->')) {
+    return html.replace('<!--TT_CONFIG-->', tag);
+  }
+  return html.replace('<head>', `<head>\n    ${tag}`);
+}
+
 // Single-deployable-unit mode: when a client build exists, host it here with
 // an SPA fallback (the client routes are '/' and '/render').
 if (clientBuildAvailable()) {
-  app.use(express.static(CLIENT_DIST));
+  const indexHtml = injectClientConfig(
+    readFileSync(join(CLIENT_DIST, 'index.html'), 'utf8')
+  );
+  app.use(express.static(CLIENT_DIST, { index: false }));
   app.get(/^\/(?!api(\/|$)).*/, (_req, res) => {
-    res.sendFile(join(CLIENT_DIST, 'index.html'));
+    res.setHeader('Cache-Control', 'no-store');
+    res.type('html').send(indexHtml);
   });
   console.log(`Serving client build from ${CLIENT_DIST}`);
 } else {

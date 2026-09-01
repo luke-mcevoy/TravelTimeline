@@ -1,12 +1,35 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
-const url = import.meta.env.VITE_SUPABASE_URL as string | undefined;
-const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
+type RuntimeConfig = {
+  supabaseUrl?: string;
+  supabaseAnonKey?: string;
+};
+
+function readConfig(): { url?: string; anonKey?: string } {
+  const runtime =
+    typeof window !== 'undefined'
+      ? ((window as unknown as { __TT_CONFIG__?: RuntimeConfig }).__TT_CONFIG__ ?? {})
+      : {};
+  const url =
+    (runtime.supabaseUrl && runtime.supabaseUrl.trim()) ||
+    (import.meta.env.VITE_SUPABASE_URL as string | undefined) ||
+    undefined;
+  const anonKey =
+    (runtime.supabaseAnonKey && runtime.supabaseAnonKey.trim()) ||
+    (import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined) ||
+    undefined;
+  return { url, anonKey };
+}
+
+const { url, anonKey } = readConfig();
 
 /**
  * Whether the social backend is configured. When false, every social surface is
  * hidden and the app behaves exactly like the original local-only globe, so a
  * missing/early-stage Supabase setup never breaks the core experience.
+ *
+ * Production deploys inject keys via `window.__TT_CONFIG__` (server runtime
+ * env). Local `npm run dev` still uses `client/.env.local`.
  */
 export const socialEnabled = Boolean(url && anonKey);
 
