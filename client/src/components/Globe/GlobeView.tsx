@@ -342,16 +342,20 @@ export function GlobeView() {
     let panDisposed = false;
     const panLoop = () => {
       if (panDisposed) return;
-      const cam = globe.camera();
-      const orbitDist = cam.position.distanceTo(controls.target);
-      if (orbitDist > PAN_ENABLE_DIST) {
-        controls.enablePan = true;
-      } else {
-        controls.enablePan = false;
-        // Ease the pivot back to Earth's centre so we re-centre on the way in.
-        if (controls.target.lengthSq() > 0.02) {
-          controls.target.lerp(origin, 0.09);
-          if (controls.target.lengthSq() < 0.02) controls.target.set(0, 0, 0);
+      // Reel capture drives the camera itself — don't lerp the orbit target
+      // or toggle pan underneath the scripted path (that's visible stutter).
+      if (!useUiStore.getState().cinematic) {
+        const cam = globe.camera();
+        const orbitDist = cam.position.distanceTo(controls.target);
+        if (orbitDist > PAN_ENABLE_DIST) {
+          controls.enablePan = true;
+        } else {
+          controls.enablePan = false;
+          // Ease the pivot back to Earth's centre so we re-centre on the way in.
+          if (controls.target.lengthSq() > 0.02) {
+            controls.target.lerp(origin, 0.09);
+            if (controls.target.lengthSq() < 0.02) controls.target.set(0, 0, 0);
+          }
         }
       }
       panRaf = requestAnimationFrame(panLoop);

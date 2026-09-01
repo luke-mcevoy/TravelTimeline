@@ -4,32 +4,27 @@ import { Muxer, ArrayBufferTarget } from 'mp4-muxer';
 import type { SortedDestination } from '@/types';
 import { loadPhotoSrc } from '@/services/photoSource';
 import { totalDistance, uniqueCountries, uniqueCities } from '@/utils/animation';
+import { isNativePlatform } from '@/services/photoSource';
 import { useUiStore } from '@/stores/uiStore';
 
 /**
- * Real-time "Instagram reel" recorder.
- *
- * Rather than rendering frames offline (slow — minutes), we composite the LIVE
- * globe canvas together with each stop's photo and captions onto a 1080×1920
- * canvas and capture it with MediaRecorder while a scripted camera flight plays.
- * Recording happens in real time, so a ~25s reel takes ~25s to make. iOS records
- * H.264 mp4 natively, which is exactly what Instagram wants.
+ * Offline 9:16 reel: pose the globe, render one WebGL frame, composite
+ * captions, encode. Controls are frozen and the drawing buffer is preserved
+ * so iOS doesn't grab a cleared/half-presented canvas.
  */
 
-const W = 1080;
-const H = 1920;
+const LAYOUT_W = 1080;
+const LAYOUT_H = 1920;
+const W = LAYOUT_W;
+const H = LAYOUT_H;
 const FPS = 30;
 
-const INTRO_MS = 1800;
-const OUTRO_MS = 3200;
-// Total time spent flying between/holding on places, spread across all stops so
-// even a long trip stays watchable. Each stop gets at least MIN_SEG so the move
-// is actually perceptible (the old 650ms felt like a hover, not a journey).
-const STOPS_BUDGET_MS = 42_000;
-const MIN_SEG_MS = 650;
-const MAX_SEG_MS = 1300;
-// Fraction of a segment spent flying to the place; the rest holds on it.
-const TRAVEL_FRAC = 0.6;
+const INTRO_MS = 2200;
+const OUTRO_MS = 3600;
+const STOPS_BUDGET_MS = 55_000;
+const MIN_SEG_MS = 1600;
+const MAX_SEG_MS = 2800;
+const TRAVEL_FRAC = 0.72;
 
 // Camera altitudes (globe-radius units). We stay pulled back far enough to SEE
 // the route arcs and the geography, with a distance-scaled hump mid-flight.
@@ -172,16 +167,16 @@ function getVideoFrame(): VideoFrameCtor | undefined {
 }
 
 /** Picks a supported H.264 codec string for WebCodecs, or null if unavailable. */
-async function pickAvcCodec(): Promise<string | null> {
+async function pickAvcCodec(width: number, height: number): Promise<string | null> {
   const VE = getVideoEncoder();
   if (!VE || typeof VE.isConfigSupported !== 'function' || !getVideoFrame()) return null;
   for (const codec of ['avc1.640028', 'avc1.4d0028', 'avc1.42e01f']) {
     try {
       const res = await VE.isConfigSupported({
         codec,
-        width: W,
-        height: H,
-        bitrate: 10_000_000,
+        width,
+        height,
+        bitrate: 6_000_000,
         framerate: FPS,
       });
       if (res?.supported) return codec;
@@ -396,15 +391,43 @@ export async function recordReel(
     ),
   ].slice(0, 18);
 
-  const canvas = document.createElement('canvas');
-  canvas.width = W;
-  canvas.height = H;
-  const ctx = canvas.getContext('2d', { alpha: false })!;
+  const scale = isNativePlatform ? 720 / LAYOUT_W : 1;
+  const outW = Math.round(LAYOUT_W * scale);
+  const outH = Math.round(LAYOUT_H * scale);
 
-  const renderer = globe.renderer() as THREE.WebGLRenderer;
+  const canvas = document.createElement('canvas');
+  canvas.width = outW;
+  canvas.height = outH;
+  const ctx = canvas.getContext('2d', { alpha: false })!;
+  ctx.setTransform(scale, 0, 0, scale, 0, 0);
+
+  const renderer = globe.renderer() as THREE.WebGLRenderer & {
+    preserveDrawingBuffer: boolean;
+  };
   const scene = globe.scene() as THREE.Scene;
-  const cam = globe.camera() as THREE.Camera;
+  const cam = globe.camera() as THREE.PerspectiveCamera;
   const glCanvas = renderer.domElement;
+  const controls = globe.controls() as {
+    enabled: boolean;
+    enableDamping: boolean;
+  };
+  const anim = globe as unknown as {
+    pauseAnimation?: () => void;
+    resumeAnimation?: () => void;
+  };
+
+  const prevControls = {
+    enabled: controls.enabled,
+    damping: controls.enableDamping,
+  };
+  const prevRenderer = {
+    preserve: renderer.preserveDrawingBuffer,
+    pr: renderer.getPixelRatio(),
+  };
+  const prevCamAspect = cam.aspect;
+  const container = glCanvas.parentElement;
+  const cssW = container?.clientWidth || glCanvas.clientWidth || 300;
+  const cssH = container?.clientHeight || glCanvas.clientHeight || 300;
 
   // Pace: spread the per-place time across the whole trip so it never drags.
   const segMs = Math.round(
@@ -446,7 +469,7 @@ export async function recordReel(
 
     const muxer = new Muxer({
       target: new ArrayBufferTarget(),
-      video: { codec: 'avc', width: W, height: H },
+      video: { codec: 'avc', width: outW, height: outH },
       fastStart: 'in-memory',
     });
     let encErr: unknown = null;
@@ -460,7 +483,13 @@ export async function recordReel(
         encErr = e;
       },
     });
-    encoder.configure({ codec, width: W, height: H, bitrate: 10_000_000, framerate: FPS });
+    encoder.configure({
+      codec,
+      width: outW,
+      height: outH,
+      bitrate: isNativePlatform ? 6_000_000 : 10_000_000,
+      framerate: FPS,
+    });
 
     for (let i = 0; i < frameCount; i++) {
       if (encErr) throw encErr;
@@ -472,11 +501,11 @@ export async function recordReel(
       encoder.encode(vf, { keyFrame: i % (FPS * 2) === 0 });
       vf.close();
       onProgress?.('Rendering…', Math.min(98, 10 + Math.round((i / frameCount) * 86)));
-
-      // Bound the encoder queue and let the page breathe so the UI stays alive.
-      if (encoder.encodeQueueSize > 24) {
-        while (encoder.encodeQueueSize > 8) await nextFrame();
-      } else if ((i & 7) === 0) {
+      // One vsync per frame so we never read a mid-flight GPU buffer, and so
+      // the encoder queue can't pile up on a phone.
+      if (encoder.encodeQueueSize > 4) {
+        while (encoder.encodeQueueSize > 1) await nextFrame();
+      } else {
         await nextFrame();
       }
     }
@@ -494,7 +523,7 @@ export async function recordReel(
     const stream = canvas.captureStream(FPS);
     const recorder = new MediaRecorder(stream, {
       mimeType: mime.mimeType,
-      videoBitsPerSecond: 12_000_000,
+      videoBitsPerSecond: isNativePlatform ? 6_000_000 : 12_000_000,
     });
     const chunks: BlobPart[] = [];
     recorder.ondataavailable = (e) => {
@@ -542,16 +571,36 @@ export async function recordReel(
   if (canToggleTiles) tiles.globeTileEngineUrl!('');
   useUiStore.getState().setCinematic(true);
 
-  // Let the globe apply the texture swap (kapsule digests props on a frame)
-  // before the first captured frame.
+  controls.enabled = false;
+  controls.enableDamping = false;
+  renderer.preserveDrawingBuffer = true;
+  renderer.setPixelRatio(1);
+  renderer.setSize(outW, outH, false);
+  cam.aspect = outW / outH;
+  cam.updateProjectionMatrix();
+  anim.pauseAnimation?.();
+
+  // Let kapsule apply the texture swap and the new framebuffer before capture.
   await nextFrame();
   await nextFrame();
   renderFrame(0);
 
   try {
-    const codec = await pickAvcCodec();
+    const codec = await pickAvcCodec(outW, outH);
     return codec ? await encodeWithWebCodecs(codec) : await encodeWithRecorder();
   } finally {
+    anim.resumeAnimation?.();
+    controls.enabled = prevControls.enabled;
+    controls.enableDamping = prevControls.damping;
+    renderer.preserveDrawingBuffer = prevRenderer.preserve;
+    renderer.setPixelRatio(prevRenderer.pr);
+    renderer.setSize(cssW, cssH, false);
+    cam.aspect = prevCamAspect;
+    cam.updateProjectionMatrix();
+    if (typeof (globe as unknown as { width: (n: number) => void }).width === 'function') {
+      (globe as unknown as { width: (n: number) => void; height: (n: number) => void }).width(cssW);
+      (globe as unknown as { height: (n: number) => void }).height(cssH);
+    }
     if (canToggleTiles) tiles.globeTileEngineUrl!(prevTileUrl as string);
     useUiStore.getState().setCinematic(false);
   }

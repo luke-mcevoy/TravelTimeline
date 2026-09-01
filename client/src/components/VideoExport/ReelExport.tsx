@@ -141,9 +141,8 @@ export function ReelExport() {
                 <Film className={styles.hero} />
                 <h2 className={styles.title}>Travel Reel</h2>
                 <p className={styles.sub}>
-                  A vertical, share-ready video of your journey — globe flythrough
-                  of every place, your photos, and your stats. Rendered smoothly on
-                  your device (about a minute).
+                  A vertical, share-ready video of your journey. Rendered on
+                  this device — keep the app open (about a minute).
                 </p>
                 <button className={styles.primary} onClick={start}>
                   <Film size={18} />
