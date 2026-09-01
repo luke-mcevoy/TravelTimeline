@@ -195,20 +195,32 @@ export async function friendStateWith(selfId: string, otherId: string): Promise<
   return r.requester === selfId ? 'pending_out' : 'pending_in';
 }
 
-export async function sendFriendRequest(selfId: string, otherId: string): Promise<void> {
+export async function addFriend(selfId: string, otherId: string): Promise<void> {
+  if (selfId === otherId) return;
   const sb = requireSupabase();
-  const { error } = await sb.from('friendships').insert({ requester: selfId, addressee: otherId });
+  const rows = await myFriendships(selfId);
+  const existing = rows.find(
+    (x) =>
+      (x.requester === selfId && x.addressee === otherId) ||
+      (x.requester === otherId && x.addressee === selfId)
+  );
+  if (existing?.status === 'accepted') return;
+  if (existing) {
+    const { error } = await sb.from('friendships').update({ status: 'accepted' }).eq('id', existing.id);
+    if (error) throw error;
+    return;
+  }
+  const { error } = await sb
+    .from('friendships')
+    .insert({ requester: selfId, addressee: otherId, status: 'accepted' });
   if (error) throw error;
 }
 
+/** @deprecated Use addFriend — friendships are immediate, not request/accept. */
+export const sendFriendRequest = addFriend;
+
 export async function acceptFriendRequest(selfId: string, requesterId: string): Promise<void> {
-  const sb = requireSupabase();
-  const { error } = await sb
-    .from('friendships')
-    .update({ status: 'accepted' })
-    .eq('requester', requesterId)
-    .eq('addressee', selfId);
-  if (error) throw error;
+  await addFriend(selfId, requesterId);
 }
 
 export async function removeFriend(selfId: string, otherId: string): Promise<void> {
@@ -241,23 +253,67 @@ export function heroUrl(path: string | null | undefined): string | null {
   return supabase.storage.from('heroes').getPublicUrl(path).data.publicUrl;
 }
 
+function placeKey(d: { countryCode?: string | null; lat: number; lng: number }): string {
+  return `${d.countryCode || 'XX'}:${d.lat.toFixed(2)},${d.lng.toFixed(2)}`;
+}
+
+/**
+ * When this device already has the same places (this Mac's Photos library),
+ * copy those photo refs onto the friend's destinations so the featured card
+ * can show the real image instead of a blank globe.
+ */
+function attachLocalPhotos(destinations: Destination[]): Destination[] {
+  const pool: Destination[] = [];
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (!key?.startsWith('travel-timeline-trips')) continue;
+      const trips = JSON.parse(localStorage.getItem(key) || '[]') as Trip[];
+      if (!Array.isArray(trips)) continue;
+      for (const t of trips) {
+        if (!t?.destinations) continue;
+        pool.push(...t.destinations);
+      }
+    }
+  } catch {
+    /* ignore */
+  }
+  const byKey = new Map<string, Destination>();
+  for (const d of pool) {
+    if (!d.serverPhotos?.length && !d.heroUrl) continue;
+    byKey.set(placeKey(d), d);
+  }
+  if (byKey.size === 0) return destinations;
+  return destinations.map((d) => {
+    const local = byKey.get(placeKey(d));
+    if (!local) return d;
+    return {
+      ...d,
+      serverPhotos: d.serverPhotos?.length ? d.serverPhotos : local.serverPhotos,
+      heroUrl: d.heroUrl || local.heroUrl,
+    };
+  });
+}
+
 /**
  * Adapts a friend's remote places into the local Trip shape so the existing
  * globe/HUD can render them unchanged via the trip store's viewer mode.
  */
 export function placesToViewerTrips(places: RemotePlace[]): Trip[] {
   const now = new Date().toISOString();
-  const destinations: Destination[] = places.map((p) => ({
-    id: p.id,
-    city: p.city ?? '',
-    country: p.country ?? '',
-    countryCode: p.country_code ?? '',
-    lat: p.lat,
-    lng: p.lng,
-    arrivalDate: p.arrival ?? now.slice(0, 10),
-    departureDate: p.departure ?? p.arrival ?? now.slice(0, 10),
-    serverPhotos: [],
-    heroUrl: heroUrl(p.hero_path) ?? undefined,
-  }));
+  const destinations: Destination[] = attachLocalPhotos(
+    places.map((p) => ({
+      id: p.id,
+      city: p.city ?? '',
+      country: p.country ?? '',
+      countryCode: p.country_code ?? '',
+      lat: p.lat,
+      lng: p.lng,
+      arrivalDate: p.arrival ?? now.slice(0, 10),
+      departureDate: p.departure ?? p.arrival ?? now.slice(0, 10),
+      serverPhotos: [],
+      heroUrl: heroUrl(p.hero_path) ?? undefined,
+    }))
+  );
   return [{ id: 'viewer', name: 'Travels', destinations, createdAt: now, updatedAt: now }];
 }

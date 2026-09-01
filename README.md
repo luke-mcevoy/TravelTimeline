@@ -67,9 +67,10 @@ Travel Timeline scans your photo library, figures out the trips you took and the
 - **True satellite globe** — Streams high-resolution ESRI World Imagery that sharpens as you zoom, with a glowing atmosphere and a starfield backdrop.
 - **Comfortable cinematic camera** — The camera flies a smooth arc between places (lifts up, crosses, descends), scaled to distance, so big jumps feel like a flight rather than a dizzying skim.
 - **Interactive playback** — Auto-play or scrub chronologically; click any place on the globe to jump straight to that moment and photo; hide the photo card anytime to admire the globe.
+- **Friends** — Optional sign-in. Search a `@handle`, tap **Add** (instant — no request), then **View** to fly through their globe with the same photo card and city labels.
 - **Cosmic perspective** — Playful "how far have I been" views: how many times your distance circles the Earth, how far it carries you toward the **Moon** (an animated rocket *and* a zoom-out beam right on the globe), and a shareable **travel passport** with a stamp for every country.
-- **Video export** — Render a downloadable 1080p MP4 of the flythrough (server-side via Puppeteer + FFmpeg).
-- **Local-first & private** — Everything runs on your machine. No photos are ever uploaded anywhere.
+- **Video export** — Render a downloadable 1080p MP4 of the flythrough (in-browser reel, or 1080p on a Mac).
+- **Local-first** — The globe works with no account. Photos stay on this machine unless you sign in, which syncs *derived places* and small hero thumbnails (never the camera roll).
 
 ---
 
@@ -110,9 +111,16 @@ npm start         # one process: serves the client AND the API on :3001
 ```
 
 In production the server hosts the built client itself (same origin, SPA
-fallback included), so `http://localhost:3001` is the whole app. For Docker
-and cloud hosting (Render blueprint included), see
-[docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
+fallback included), so `http://localhost:3001` is the whole app.
+
+**Share from this Mac** (friend on their own phone/laptop): `./serve-public.sh`.
+That is a Cloudflare quick tunnel. Copy the `https://….trycloudflare.com` URL
+and send it. Your Mac has to stay awake. After a rebuild, hard-refresh
+(Cmd+Shift+R) so the service worker does not keep the old JS.
+
+For Docker and an always-on host (Render), see
+[docs/DEPLOYMENT.md](docs/DEPLOYMENT.md). Friends and accounts:
+[docs/SOCIAL_SETUP.md](docs/SOCIAL_SETUP.md).
 
 ---
 
@@ -138,6 +146,25 @@ and cloud hosting (Render blueprint included), see
 | **Reset to the globe view** | Reset button in the timeline bar |
 | **Re-scan your photos** | Re-open **Build My Story** and rebuild |
 | **Export a video** | **Export Video** button |
+| **Sign in / friends** | People icon (top-right) |
+| **Add a friend** | Search their `@handle`, tap **Add** |
+| **View a friend's globe** | **View** — photo card and pins play back their story |
+
+The globe is usable **without** an account. Sign in (email + password on the
+web; Sign in with Apple on iOS) only if you want friends or to sync a map
+across devices. Each account has its own map. This Mac's Photos library stays
+on the unsigned-in guest globe; a friend who creates an account starts empty
+and does not inherit your trips.
+
+### Sharing the site from this Mac
+
+```bash
+./serve-public.sh
+```
+
+Needs `cloudflared` (`brew install cloudflared`) and `client/.env.local` with
+Supabase keys so a friend can sign in. Leave the terminal open. Chrome may
+warn that trycloudflare is a tunnel — that is expected.
 
 ### The manual way (optional)
 
@@ -182,12 +209,15 @@ client/                         React 19 + TypeScript + Vite frontend
     components/
       Globe/        GlobeView (satellite globe + markers), RenderView (export), Starfield, FeaturedDestination (photo card)
       Layout/       AppLayout, HudFrame (subtle vignette), StatsBar
+      Social/       sign-in, friends, leaderboards, view-a-friend's-globe
       Timeline/     TimelineBar (playback controls)
       TripManager/  TripPanel, TripCard, ApplePhotosImport (story builder), CitySearch, photo components
       VideoExport/  VideoExportButton
-    stores/         Zustand state (tripStore, globeStore, uiStore)
+    stores/         Zustand state (tripStore, globeStore, uiStore, authStore)
+    services/       photoSource, travelSync, social (Supabase)
     utils/          camera (arc flight), animation, storage, geocoding helpers
   public/           Earth textures + base imagery
+  supabase/         schema.sql (profiles, places, friendships, heroes bucket)
 
 server/                         Express backend (the macOS-specific work the browser can't do)
   src/
@@ -228,7 +258,19 @@ The globe uses **globe.gl's tile engine** backed by **ESRI World Imagery**: it s
 
 ## Privacy
 
-Travel Timeline is local-first. Your Photos database is opened **read-only**, thumbnails are generated and served locally, and trip data is stored in your browser's `localStorage`. Country lookups are computed **offline** from data already on your machine. The only outbound network traffic is fetching **satellite map tiles** for the globe (coordinates only — never your photos).
+Travel Timeline is local-first. The globe works with no account. Your Photos
+database is opened **read-only**, thumbnails are generated and served locally,
+and the unsigned-in map is stored in this browser's `localStorage`.
+
+If you **sign in**, derived *places* (city, country, dates, a lat/lng) and one
+small hero thumbnail per place sync to Supabase so friends can view your globe
+and so your phone and laptop stay in step. The camera roll itself is never
+uploaded. Sign out and this Mac's guest library is still here.
+
+The only other outbound traffic is fetching **satellite map tiles** for the
+globe (coordinates only — never your photos).
+
+Social setup: [docs/SOCIAL_SETUP.md](docs/SOCIAL_SETUP.md).
 
 ---
 
@@ -237,6 +279,9 @@ Travel Timeline is local-first. Your Photos database is opened **read-only**, th
 - **"Photos database not accessible"** — grant **Full Disk Access** to your terminal/editor (see Prerequisites), then restart it.
 - **Some countries are missing** — those photos are likely only in iCloud and not downloaded to this Mac (there's no local image to show), or were taken with location services off. Download the originals in Photos and rebuild.
 - **The globe is blank / no imagery** — the satellite tiles need an internet connection.
+- **White screen after a rebuild** — hard-refresh (Cmd+Shift+R). The service worker must not keep a stale `index.html`.
+- **Chrome calls the trycloudflare URL "Dangerous"** — expected for a quick tunnel; the site is still yours.
+- **A new account showed this Mac's globe** — that was a leak; accounts are isolated now. Sign out to get the Photos library back. A friend who signs in starts empty.
 - **Video export fails** — ensure `ffmpeg` is installed and on your `PATH`, and that Google Chrome is installed.
 - **Stale results after rebuilding** — your previous story is cached in the browser; re-open **Build My Story** to regenerate.
 

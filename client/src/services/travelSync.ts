@@ -3,8 +3,13 @@ import { requireSupabase } from './supabase';
 import { updateMyStats, getPlacesFor, heroUrl, type RemotePlace } from './social';
 import { loadPhotoSrc } from './photoSource';
 import { useTripStore } from '@/stores/tripStore';
+import { useAuthStore } from '@/stores/authStore';
+import { loadTrips, saveTrips } from '@/utils/storage';
 import { totalDistance, uniqueCountries, uniqueCities } from '@/utils/animation';
-import type { Destination, SortedDestination, Trip } from '@/types';
+import type { Destination, Trip } from '@/types';
+
+/** Accounts whose globe is this Mac's Photos library. Everyone else starts empty. */
+const HOST_HANDLES = new Set(['lmcevoy', 'demo_traveler']);
 
 const HERO_UPLOAD_WIDTH = 480; // small, shareable thumbnail
 const SYNCED_HEROES_KEY = 'tt_synced_heroes';
@@ -14,7 +19,7 @@ function heroesKey(userId: string): string {
 }
 
 /** Stable id for a place so re-syncs upsert instead of duplicating. */
-function placeKey(d: SortedDestination): string {
+function placeKey(d: { countryCode?: string; lat: number; lng: number }): string {
   const cc = d.countryCode || 'XX';
   return `${cc}:${d.lat.toFixed(2)},${d.lng.toFixed(2)}`;
 }
@@ -44,6 +49,71 @@ function remoteToDestination(p: RemotePlace): Destination {
     departureDate: p.departure ?? arrival,
     heroUrl: heroUrl(p.hero_path) ?? undefined,
   };
+}
+
+function keysFromTrips(trips: Trip[]): Set<string> {
+  const keys = new Set<string>();
+  for (const t of trips) {
+    for (const d of t.destinations) {
+      keys.add(placeKey(d));
+    }
+  }
+  return keys;
+}
+
+function isCloneOf(keys: Iterable<string>, guestKeys: Set<string>): boolean {
+  if (guestKeys.size < 20) return false;
+  const list = [...keys];
+  if (list.length < 20) return false;
+  const hits = list.filter((k) => guestKeys.has(k)).length;
+  return hits / list.length >= 0.85;
+}
+
+function isHostAccount(): boolean {
+  const handle = useAuthStore.getState().profile?.handle;
+  return Boolean(handle && HOST_HANDLES.has(handle));
+}
+
+/** Delete this account's cloud places and stats. Does not touch the Mac guest library. */
+export async function clearRemoteTravel(userId: string): Promise<void> {
+  const sb = requireSupabase();
+  await sb.from('places').delete().eq('user_id', userId);
+  await updateMyStats(userId, {
+    countries_count: 0,
+    cities_count: 0,
+    places_count: 0,
+    distance_km: 0,
+    home_country: null,
+  });
+  localStorage.removeItem(heroesKey(userId));
+  saveTrips([], userId);
+  if (useTripStore.getState().ownerId === userId) {
+    useTripStore.getState().setTrips([]);
+  }
+  await useAuthStore.getState().reloadProfile();
+}
+
+/**
+ * This Mac's Photos story lives on the guest library (and @lmcevoy). A friend
+ * who signed in here used to inherit that map, then upload it to their account.
+ * If this account's local or cloud copy is that guest globe, strip it.
+ */
+export async function detachLeakedGuestLibrary(userId: string): Promise<boolean> {
+  if (isHostAccount()) return false;
+  const sb = requireSupabase();
+  let hostKeys = keysFromTrips(loadTrips(null));
+  if (hostKeys.size < 20) {
+    const { data } = await sb.from('profiles').select('id').eq('handle', 'lmcevoy').maybeSingle();
+    if (data?.id && data.id !== userId) {
+      hostKeys = new Set((await getPlacesFor(data.id as string)).map((p) => p.place_key));
+    }
+  }
+  const localKeys = new Set(useTripStore.getState().getSortedDestinations().map(placeKey));
+  const remote = await getPlacesFor(userId);
+  const remoteKeys = remote.map((p) => p.place_key);
+  if (!isCloneOf(localKeys, hostKeys) && !isCloneOf(remoteKeys, hostKeys)) return false;
+  await clearRemoteTravel(userId);
+  return true;
 }
 
 /**

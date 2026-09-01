@@ -11,12 +11,17 @@ keys — without them the app runs exactly as before (local single-user).
   iOS, email/password on web) only for friends and cross-device sync. A session
   stays in this browser until you sign out.
 - **Profiles:** public `@handle` + denormalized stats (countries, cities, distance).
-- **Friends:** mutual request/accept graph; search by handle.
+- **Friends:** search by handle and add immediately; no request/accept.
 - **Leaderboards:** **Global** + **Friends**, ranked by **countries** or **distance**.
 - **Viewing:** open a friend → their travel history loads into the same globe/HUD
-  (a banner lets you return to your own). Friends' places are gated by RLS.
+  (photo card, city pins, a banner to return to your own). Friends' places are
+  gated by RLS. On this Mac, matching Photos thumbnails are used when present.
 - **Sync:** after each on-device library build, your derived places + one small hero
   thumbnail each are pushed to the backend (idempotent; auto-runs in the background).
+- **Per-account maps:** this Mac's Photos library is the unsigned-in guest globe.
+  A friend who signs in starts empty and cannot inherit that library. Apple Photos
+  import stays on the guest / host map so a shared Mac URL does not attach your
+  camera roll to someone else's account.
 
 Your **whole camera roll is never uploaded** — only the derived places and small
 hero thumbnails. The app still auto-picks everything (no manual curation), which is
@@ -69,7 +74,9 @@ option (the Simulator can't do Sign in with Apple anyway).
   you want friends or sync → pick an `@handle`.
 - Build your library as usual; your map auto-syncs.
 - Tap the **people icon** (top-right) for Friends + Leaderboards. Search a handle,
-  send a request; once accepted, tap **View** to fly through their globe.
+  tap **Add**, then **View** to fly through their globe (photo card + pins).
+- To let a friend open the site from their phone, run `./serve-public.sh` and
+  send the trycloudflare URL. Hard-refresh after you rebuild.
 
 ## Notes & trade-offs
 

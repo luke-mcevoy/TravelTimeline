@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { useAuthStore } from '@/stores/authStore';
 import { useTripStore } from '@/stores/tripStore';
-import { hydrateMyTravel, syncMyTravel } from '@/services/travelSync';
+import { detachLeakedGuestLibrary, hydrateMyTravel, syncMyTravel } from '@/services/travelSync';
 
 /**
  * Keeps the backend copy of the user's travel history in step with the local
@@ -28,6 +28,7 @@ export function useTravelSync(): void {
     if (timer.current) window.clearTimeout(timer.current);
     timer.current = window.setTimeout(() => {
       (async () => {
+        if (await detachLeakedGuestLibrary(userId)) return;
         await hydrateMyTravel(userId);
         await syncMyTravel(userId);
       })().catch((err) => {

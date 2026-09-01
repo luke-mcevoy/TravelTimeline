@@ -1,6 +1,6 @@
 /* App-shell service worker. Caches the HTML/JS/CSS/icons so an installed
    home-screen app launches instantly; API and map tiles stay network-first. */
-const CACHE = 'tt-shell-v2';
+const CACHE = 'tt-shell-v5';
 const PRECACHE = ['/manifest.webmanifest', '/icons/icon-192.png', '/icons/icon-512.png'];
 
 self.addEventListener('install', (event) => {

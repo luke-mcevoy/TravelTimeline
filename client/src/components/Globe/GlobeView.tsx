@@ -218,6 +218,7 @@ export function GlobeView() {
   const setGlobeInstance = useGlobeStore((s) => s.setGlobeInstance);
 
   const trips = useTripStore((s) => s.trips);
+  const viewerTrips = useTripStore((s) => s.viewerTrips);
   const animation = useTripStore((s) => s.animation);
   const getSortedDestinations = useTripStore((s) => s.getSortedDestinations);
 
@@ -481,12 +482,18 @@ export function GlobeView() {
         const photos = dest.serverPhotos;
         if (photos && photos.length > 0) {
           preloadPhoto(photos[0]);
+        } else if (dest.heroUrl) {
+          if (!preloadCache.has(dest.heroUrl)) {
+            const img = new Image();
+            img.src = dest.heroUrl;
+            preloadCache.set(dest.heroUrl, img);
+          }
         }
       }
     }
 
     return { arcs };
-  }, [getSortedDestinations, animation.isPlaying, animation.currentDestinationIndex]);
+  }, [getSortedDestinations, viewerTrips, animation.isPlaying, animation.currentDestinationIndex]);
 
   useEffect(() => {
     if (!globeRef.current) return;
@@ -500,7 +507,7 @@ export function GlobeView() {
     // the controls 'change' event won't fire on its own.
     const raf = requestAnimationFrame(() => updateArcsRef.current());
     return () => cancelAnimationFrame(raf);
-  }, [trips, animation.currentDestinationIndex, animation.isPlaying, buildGlobeData]);
+  }, [trips, viewerTrips, animation.currentDestinationIndex, animation.isPlaying, buildGlobeData]);
 
   // Drop tile detail while auto-playing so fast hops don't churn deep tiles;
   // restore full detail (which sharpens the view) the moment playback stops.

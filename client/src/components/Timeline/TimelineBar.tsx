@@ -11,6 +11,7 @@ const DWELL_MS = 1500;
 
 export function TimelineBar() {
   const trips = useTripStore((s) => s.trips);
+  const viewerTrips = useTripStore((s) => s.viewerTrips);
   const animation = useTripStore((s) => s.animation);
   const setAnimation = useTripStore((s) => s.setAnimation);
   const resetAnimation = useTripStore((s) => s.resetAnimation);
@@ -109,6 +110,7 @@ export function TimelineBar() {
   if (totalDests < 2) return null;
 
   void trips;
+  void viewerTrips;
 
   return (
     <div className={styles.wrapper}>

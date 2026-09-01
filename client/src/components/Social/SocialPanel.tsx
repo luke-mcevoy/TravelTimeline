@@ -4,23 +4,21 @@ import {
   X,
   Search,
   UserPlus,
-  Check,
   Trophy,
   Globe2,
   LogOut,
   Loader2,
-  Clock,
   Trash2,
   Copy,
   CheckCheck,
 } from 'lucide-react';
 import { useAuthStore } from '@/stores/authStore';
 import { useTripStore } from '@/stores/tripStore';
+import { useUiStore } from '@/stores/uiStore';
 import {
   searchProfiles,
   getFriendEdges,
-  sendFriendRequest,
-  acceptFriendRequest,
+  addFriend,
   removeFriend,
   getLeaderboard,
   getPlacesFor,
@@ -69,7 +67,13 @@ export function SocialPanel() {
   const refreshFriends = useCallback(async () => {
     if (!userId) return;
     try {
-      setEdges(await getFriendEdges(userId));
+      let next = await getFriendEdges(userId);
+      const pending = next.filter((e) => e.state !== 'accepted');
+      if (pending.length > 0) {
+        await Promise.all(pending.map((e) => addFriend(userId, e.profile.id)));
+        next = await getFriendEdges(userId);
+      }
+      setEdges(next);
     } catch {
       /* ignore */
     }
@@ -116,18 +120,7 @@ export function SocialPanel() {
     if (!userId) return;
     setBusyId(id);
     try {
-      await sendFriendRequest(userId, id);
-      await refreshFriends();
-    } finally {
-      setBusyId(null);
-    }
-  };
-
-  const accept = async (requesterId: string) => {
-    if (!userId) return;
-    setBusyId(requesterId);
-    try {
-      await acceptFriendRequest(userId, requesterId);
+      await addFriend(userId, id);
       await refreshFriends();
     } finally {
       setBusyId(null);
@@ -165,15 +158,15 @@ export function SocialPanel() {
         return;
       }
       viewProfile({ handle: p.handle, displayName: p.display_name }, placesToViewerTrips(places));
+      useUiStore.getState().setShowPhotoCard(true);
+      useUiStore.getState().setShowCityLabel(true);
       setOpen(false);
     } catch {
-      setNotice(`Couldn't load @${p.handle}'s map — they need to accept your request first.`);
+      setNotice(`Couldn't load @${p.handle}'s map.`);
     }
   };
 
-  const incoming = edges.filter((e) => e.state === 'pending_in');
   const friends = edges.filter((e) => e.state === 'accepted');
-  const outgoing = edges.filter((e) => e.state === 'pending_out');
 
   return (
     <>
@@ -282,7 +275,7 @@ export function SocialPanel() {
                     />
                   </div>
                   <p className={styles.hint}>
-                    Search their @handle, tap Add, then they Accept. After that, View opens their globe.
+                    Search a @handle and tap Add. You can View their globe right away.
                   </p>
 
                   {query.trim().length >= 2 && !searching && results.length === 0 && (
@@ -297,26 +290,8 @@ export function SocialPanel() {
                             state={stateFor(p.id)}
                             busy={busyId === p.id}
                             onAdd={() => add(p.id)}
-                            onAccept={() => accept(p.id)}
                             onView={() => viewGlobe(p)}
                           />
-                        </Row>
-                      ))}
-                    </Section>
-                  )}
-
-                  {incoming.length > 0 && (
-                    <Section title="Requests">
-                      {incoming.map((e) => (
-                        <Row key={e.profile.id} p={e.profile}>
-                          <button
-                            className={styles.primarySm}
-                            disabled={busyId === e.profile.id}
-                            onClick={() => accept(e.profile.id)}
-                          >
-                            {busyId === e.profile.id ? <Loader2 className={styles.spin} /> : <Check size={15} />}
-                            Accept
-                          </button>
                         </Row>
                       ))}
                     </Section>
@@ -339,18 +314,6 @@ export function SocialPanel() {
                       </Row>
                     ))}
                   </Section>
-
-                  {outgoing.length > 0 && (
-                    <Section title="Pending">
-                      {outgoing.map((e) => (
-                        <Row key={e.profile.id} p={e.profile}>
-                          <span className={styles.pending}>
-                            <Clock size={13} /> Requested
-                          </span>
-                        </Row>
-                      ))}
-                    </Section>
-                  )}
                 </>
               ) : (
                 <>
@@ -418,7 +381,6 @@ export function SocialPanel() {
                                 state={stateFor(p.id)}
                                 busy={busyId === p.id}
                                 onAdd={() => add(p.id)}
-                                onAccept={() => accept(p.id)}
                                 onView={() => viewGlobe(p)}
                               />
                             )}
@@ -464,13 +426,11 @@ function FriendAction({
   state,
   busy,
   onAdd,
-  onAccept,
   onView,
 }: {
   state: FriendEdge['state'] | 'none';
   busy: boolean;
   onAdd: () => void;
-  onAccept: () => void;
   onView: () => void;
 }) {
   if (state === 'accepted')
@@ -478,19 +438,6 @@ function FriendAction({
       <button className={styles.ghostSm} onClick={onView}>
         <Globe2 size={15} /> View
       </button>
-    );
-  if (state === 'pending_in')
-    return (
-      <button className={styles.primarySm} disabled={busy} onClick={onAccept}>
-        {busy ? <Loader2 className={styles.spin} /> : <Check size={15} />}
-        Accept
-      </button>
-    );
-  if (state === 'pending_out')
-    return (
-      <span className={styles.pending}>
-        <Clock size={13} /> Requested
-      </span>
     );
   return (
     <button className={styles.primarySm} disabled={busy} onClick={onAdd}>

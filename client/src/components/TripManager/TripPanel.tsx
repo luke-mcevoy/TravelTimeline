@@ -11,6 +11,8 @@ import {
   Plus,
 } from 'lucide-react';
 import { useTripStore } from '@/stores/tripStore';
+import { useAuthStore } from '@/stores/authStore';
+import { clearRemoteTravel } from '@/services/travelSync';
 import { exportTripsToJson, importTripsFromJson } from '@/utils/storage';
 import { clearAllPhotos } from '@/utils/photoDb';
 import { TripCard } from './TripCard';
@@ -31,6 +33,8 @@ export function TripPanel() {
   const selectTrip = useTripStore((s) => s.selectTrip);
   const addTrip = useTripStore((s) => s.addTrip);
   const resetAnimation = useTripStore((s) => s.resetAnimation);
+  const userId = useAuthStore((s) => s.userId);
+  const authReady = useAuthStore((s) => s.status === 'ready');
 
   const handleClearAll = async () => {
     if (trips.length === 0) return;
@@ -42,6 +46,7 @@ export function TripPanel() {
     selectTrip(null);
     resetAnimation();
     await clearAllPhotos().catch(() => {});
+    if (authReady && userId) await clearRemoteTravel(userId).catch(() => {});
   };
 
   const [namingPct, setNamingPct] = useState<number | null>(null);

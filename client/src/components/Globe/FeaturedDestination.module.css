@@ -30,6 +30,14 @@
   animation: featured-rise 0.7s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
+.frameText {
+  min-width: min(100%, 340px);
+  min-height: 180px;
+  background:
+    radial-gradient(120% 80% at 50% 0%, rgba(56, 225, 255, 0.16), transparent 55%),
+    #04070d;
+}
+
 @keyframes featured-rise {
   from {
     opacity: 0;

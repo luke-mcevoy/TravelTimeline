@@ -30,6 +30,30 @@ NODE_ENV=production npm start
 The server listens on `PORT` (default 3001) and serves the client build it
 finds at `client/dist`. Visit `http://localhost:3001`.
 
+## Share from this Mac (a friend signs in)
+
+`localhost` is only this computer. A friend on LTE cannot reach it. You do
+not need Render for that — you need a public URL that forwards to this Mac.
+You already do this for Carriage with Cloudflare.
+
+```bash
+chmod +x serve-public.sh   # once
+./serve-public.sh
+```
+
+Copy the `https://….trycloudflare.com` line and send it. Leave the window
+open; plug the Mac in; don’t close the lid. They sign in on that URL the
+same way you do (email + password, or a code). Friends still go through
+Supabase — the tunnel is just the website. After you `npm run build`,
+hard-refresh the tunnel (Cmd+Shift+R) so the service worker drops the old JS.
+
+The trycloudflare hostname changes each run. Password sign-in still works.
+If you use magic-link emails, add that hostname under Supabase →
+Authentication → URL Configuration → Redirect URLs.
+
+When you quit the script, the URL dies. That’s the trade vs Render: your
+Mac is the server.
+
 ## Option 2 — Docker
 
 ```bash

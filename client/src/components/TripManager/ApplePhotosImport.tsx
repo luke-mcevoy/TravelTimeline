@@ -2,6 +2,7 @@ import { useState, useCallback, useEffect, useRef } from 'react';
 import { Camera, Loader2, Sparkles } from 'lucide-react';
 import { nanoid } from 'nanoid';
 import { useTripStore } from '@/stores/tripStore';
+import { useAuthStore } from '@/stores/authStore';
 import type { Trip, Destination } from '@/types';
 import {
   checkAccess as checkPhotoAccess,
@@ -33,6 +34,9 @@ export function ApplePhotosImport() {
   const setTrips = useTripStore((s) => s.setTrips);
   const setAnimation = useTripStore((s) => s.setAnimation);
   const existingTrips = useTripStore((s) => s.trips);
+  const signedIn = useAuthStore((s) => s.status === 'ready');
+  const handle = useAuthStore((s) => s.profile?.handle);
+  const allowMacPhotos = !signedIn || handle === 'lmcevoy';
   const autoOpenedRef = useRef(false);
 
   useEffect(() => {
@@ -58,7 +62,7 @@ export function ApplePhotosImport() {
   // the ready state (the OS permission prompt fires when they tap Build); on
   // web we first confirm the backend can see the Photos library.
   useEffect(() => {
-    if (autoOpenedRef.current || existingTrips.length > 0) return;
+    if (!allowMacPhotos || autoOpenedRef.current || existingTrips.length > 0) return;
     autoOpenedRef.current = true;
     if (isNativePlatform) {
       // Deferred so the mount render commits before the modal state flips.
@@ -80,7 +84,7 @@ export function ApplePhotosImport() {
         /* backend not up yet — stay quiet, user can open manually */
       }
     })();
-  }, [existingTrips.length]);
+  }, [allowMacPhotos, existingTrips.length]);
 
   const handleOpen = useCallback(() => {
     setShowModal(true);
@@ -161,7 +165,7 @@ export function ApplePhotosImport() {
     setError('');
   };
 
-  if (!available) return null;
+  if (!available || !allowMacPhotos) return null;
 
   return (
     <>

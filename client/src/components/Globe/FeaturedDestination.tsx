@@ -13,6 +13,7 @@ function formatDate(iso: string): string {
 
 export function FeaturedDestination() {
   const animation = useTripStore((s) => s.animation);
+  const viewing = useTripStore((s) => s.viewing);
   const getSortedDestinations = useTripStore((s) => s.getSortedDestinations);
   const showPhotoCard = useUiStore((s) => s.showPhotoCard);
   const setShowPhotoCard = useUiStore((s) => s.setShowPhotoCard);
@@ -35,8 +36,9 @@ export function FeaturedDestination() {
   const photo = photos[clampedIndex];
   // Hook must run every render — feed it null when there's nothing to show.
   const hookSrc = usePhotoSrc(photo ?? null, HERO_PHOTO_WIDTH);
-  // A friend's place carries a direct remote hero URL instead of a local ref.
-  const src = current?.heroUrl ?? hookSrc;
+  // Prefer the live local photo when we have one; otherwise the friend's
+  // uploaded hero thumbnail.
+  const src = hookSrc || current?.heroUrl || null;
 
   // ── Crossfade between photos (never fade through black) ──
   // `committedSrc` is the photo currently shown in the base layer; `incomingSrc`
@@ -96,7 +98,6 @@ export function FeaturedDestination() {
   }, [incomingSrc, fadeMs]);
 
   if (!current) return null;
-  if (photos.length === 0 && !current.heroUrl) return null;
 
   // Hidden: leave only a small button to bring the photo back.
   if (!showPhotoCard) {
@@ -114,18 +115,20 @@ export function FeaturedDestination() {
 
   return (
     <div className={styles.stage} style={{ ['--xfade' as string]: `${fadeMs}ms` }}>
-      <figure className={styles.frame}>
+      <figure className={`${styles.frame} ${src || committedSrc ? '' : styles.frameText}`}>
         {/* Base layer: the photo currently on screen. Persistent element + cached
             src swap means the browser holds the previous frame until the next is
             decoded, so this never blinks to black. */}
-        <img
-          src={committedSrc ?? src ?? undefined}
-          alt=""
-          className={styles.photo}
-          onError={(e) => {
-            (e.target as HTMLImageElement).style.opacity = '0';
-          }}
-        />
+        {(committedSrc ?? src) && (
+          <img
+            src={committedSrc ?? src ?? undefined}
+            alt=""
+            className={styles.photo}
+            onError={(e) => {
+              (e.target as HTMLImageElement).style.opacity = '0';
+            }}
+          />
+        )}
         {/* Overlay layer: the next photo, fading in over the current one. */}
         {incomingSrc && incomingSrc !== committedSrc && (
           <img
@@ -151,7 +154,8 @@ export function FeaturedDestination() {
         </button>
 
         <figcaption className={styles.caption}>
-          <span className={styles.place}>{current.city}</span>
+          {viewing && <span className={styles.kicker}>@{viewing.handle}</span>}
+          <span className={styles.place}>{current.city || current.country || 'Unknown'}</span>
           <span className={styles.meta}>
             {current.country && <span>{current.country}</span>}
             {current.country && <span className={styles.metaDot} />}

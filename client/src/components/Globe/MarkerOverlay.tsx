@@ -42,6 +42,7 @@ export function MarkerOverlay() {
   const containerRef = useRef<HTMLDivElement>(null);
   const globe = useGlobeStore((s) => s.globeInstance) as unknown as GlobeLike | null;
   const trips = useTripStore((s) => s.trips);
+  const viewerTrips = useTripStore((s) => s.viewerTrips);
   const getSorted = useTripStore((s) => s.getSortedDestinations);
   const currentIndex = useTripStore((s) => s.animation.currentDestinationIndex);
   const elsRef = useRef<MarkerEl[]>([]);
@@ -147,7 +148,7 @@ export function MarkerOverlay() {
         labelOn: false,
       };
     });
-  }, [trips, getSorted]);
+  }, [trips, viewerTrips, getSorted]);
 
   // Tapping the globe away from a city dismisses the name callout. Marker taps
   // catch their own click (and stop propagation) before it reaches the globe
