@@ -20,7 +20,10 @@ export function AuthGate({ onDismiss }: { onDismiss?: () => void }) {
   const sendEmailOtp = useAuthStore((s) => s.sendEmailOtp);
   const verifyEmailOtp = useAuthStore((s) => s.verifyEmailOtp);
   const resetOtp = useAuthStore((s) => s.resetOtp);
+  const setPassword = useAuthStore((s) => s.setPassword);
+  const skipPassword = useAuthStore((s) => s.skipPassword);
   const submitProfile = useAuthStore((s) => s.submitProfile);
+  const needsPassword = useAuthStore((s) => s.needsPassword);
 
   const [email, setEmail] = useState('');
   const [password, setPasswordValue] = useState('');
@@ -29,6 +32,42 @@ export function AuthGate({ onDismiss }: { onDismiss?: () => void }) {
   const [showEmail, setShowEmail] = useState(!isNativePlatform);
   const [handle, setHandle] = useState('');
   const [name, setName] = useState('');
+
+  if (needsPassword && status !== 'needsProfile') {
+    return (
+      <div className={styles.backdrop}>
+        <div className={styles.card}>
+          <Globe2 className={styles.hero} />
+          <h1 className={styles.title}>Set a password</h1>
+          <p className={styles.sub}>
+            A new Cloudflare URL is a new website — it won't remember you. A
+            password is how you sign in next time without an email code.
+          </p>
+          <div className={styles.emailBlock}>
+            <input
+              className={styles.input}
+              value={password}
+              onChange={(e) => setPasswordValue(e.target.value)}
+              placeholder="Password (6+ characters)"
+              type="password"
+              autoComplete="new-password"
+            />
+            {error && <p className={styles.error}>{error}</p>}
+            <button
+              className={styles.primary}
+              disabled={busy || password.length < 6}
+              onClick={() => setPassword(password)}
+            >
+              {busy ? <Loader2 className={styles.spinnerSm} /> : 'Save password'}
+            </button>
+            <button className={styles.ghost} type="button" onClick={skipPassword}>
+              Skip for now
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (status === 'needsProfile') {
     return (
@@ -143,7 +182,7 @@ export function AuthGate({ onDismiss }: { onDismiss?: () => void }) {
                 setMethod('otp');
               }}
             >
-              Email me a code instead
+              No password yet? Email a one-time code
             </button>
           </div>
         ) : !otpSent ? (
@@ -170,7 +209,7 @@ export function AuthGate({ onDismiss }: { onDismiss?: () => void }) {
           </div>
         ) : (
           <div className={styles.emailBlock}>
-            <p className={styles.sub}>Enter the code sent to {email}.</p>
+            <p className={styles.sub}>Enter the code sent to {email}. Then you'll set a password so you don't need another code.</p>
             <input
               className={styles.input}
               value={code}

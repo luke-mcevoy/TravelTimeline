@@ -41,6 +41,9 @@ export function SocialPanel() {
   const userId = useAuthStore((s) => s.userId);
   const profile = useAuthStore((s) => s.profile);
   const signOut = useAuthStore((s) => s.signOut);
+  const setPassword = useAuthStore((s) => s.setPassword);
+  const busy = useAuthStore((s) => s.busy);
+  const authError = useAuthStore((s) => s.error);
   const viewProfile = useTripStore((s) => s.viewProfile);
 
   const [open, setOpen] = useState(false);
@@ -54,6 +57,8 @@ export function SocialPanel() {
   const [copied, setCopied] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [searching, setSearching] = useState(false);
+  const [newPassword, setNewPassword] = useState('');
+  const [passwordSaved, setPasswordSaved] = useState(false);
 
   // Leaderboard
   const [scope, setScope] = useState<'global' | 'friends'>('global');
@@ -221,6 +226,47 @@ export function SocialPanel() {
               className={styles.body}
               onWheel={(e) => e.stopPropagation()}
             >
+              {tab === 'friends' && (
+                <form
+                  className={styles.passwordRow}
+                  onSubmit={async (e) => {
+                    e.preventDefault();
+                    const ok = await setPassword(newPassword);
+                    if (ok) {
+                      setPasswordSaved(true);
+                      setNewPassword('');
+                    }
+                  }}
+                >
+                  <p className={styles.hint}>
+                    Set a password once. After that, sign in with email + password — no
+                    code, even on a new Cloudflare URL.
+                  </p>
+                  <div className={styles.passwordFields}>
+                    <input
+                      className={styles.search}
+                      style={{ paddingLeft: 12 }}
+                      type="password"
+                      autoComplete="new-password"
+                      placeholder="New password (6+)"
+                      value={newPassword}
+                      onChange={(e) => {
+                        setNewPassword(e.target.value);
+                        setPasswordSaved(false);
+                      }}
+                    />
+                    <button
+                      className={styles.primarySm}
+                      type="submit"
+                      disabled={busy || newPassword.length < 6}
+                    >
+                      {busy ? <Loader2 className={styles.spin} /> : 'Save'}
+                    </button>
+                  </div>
+                  {passwordSaved && <p className={styles.hint}>Password saved.</p>}
+                  {authError && <p className={styles.notice}>{authError}</p>}
+                </form>
+              )}
               {notice && <p className={styles.notice}>{notice}</p>}
               {tab === 'friends' ? (
                 <>

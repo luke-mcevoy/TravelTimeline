@@ -14,9 +14,10 @@ import panelStyles from './SocialPanel.module.css';
  */
 export function SocialRoot() {
   const status = useAuthStore((s) => s.status);
+  const needsPassword = useAuthStore((s) => s.needsPassword);
   const init = useAuthStore((s) => s.init);
   const [signInOpen, setSignInOpen] = useState(false);
-  if (status === 'ready' && signInOpen) {
+  if (status === 'ready' && signInOpen && !needsPassword) {
     setSignInOpen(false);
   }
 
@@ -29,7 +30,10 @@ export function SocialRoot() {
   if (!socialEnabled) return null;
   if (status === 'loading') return null;
 
-  const showAuth = status === 'needsProfile' || (signInOpen && status === 'signedOut');
+  const showAuth =
+    status === 'needsProfile' ||
+    needsPassword ||
+    (signInOpen && status === 'signedOut');
 
   return (
     <>
@@ -48,7 +52,13 @@ export function SocialRoot() {
         </button>
       )}
       {showAuth && (
-        <AuthGate onDismiss={status === 'needsProfile' ? undefined : () => setSignInOpen(false)} />
+        <AuthGate
+          onDismiss={
+            status === 'needsProfile' || needsPassword
+              ? undefined
+              : () => setSignInOpen(false)
+          }
+        />
       )}
     </>
   );

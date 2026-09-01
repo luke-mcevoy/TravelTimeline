@@ -13,6 +13,8 @@ interface AuthStore {
   busy: boolean;
   error: string | null;
   otpSent: boolean;
+  /** After an OTP login, pick a password so the next origin doesn't need a code. */
+  needsPassword: boolean;
 
   init: () => void;
   signInApple: () => Promise<void>;
@@ -20,6 +22,8 @@ interface AuthStore {
   signUpPassword: (email: string, password: string) => Promise<void>;
   sendEmailOtp: (email: string) => Promise<void>;
   verifyEmailOtp: (email: string, token: string) => Promise<void>;
+  setPassword: (password: string) => Promise<boolean>;
+  skipPassword: () => void;
   submitProfile: (handle: string, displayName: string) => Promise<void>;
   reloadProfile: () => Promise<void>;
   signOut: () => Promise<void>;
@@ -52,6 +56,7 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
   busy: false,
   error: null,
   otpSent: false,
+  needsPassword: false,
 
   init: () => {
     if (!supabase || authStarted) return;
@@ -164,13 +169,35 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
         type: 'email',
       });
       if (error) throw error;
-      set({ otpSent: false });
+      set({ otpSent: false, needsPassword: true });
     } catch (e) {
       set({ error: message(e) });
     } finally {
       set({ busy: false });
     }
   },
+
+  setPassword: async (password) => {
+    if (!supabase) return false;
+    if (password.length < 6) {
+      set({ error: 'Password must be at least 6 characters.' });
+      return false;
+    }
+    set({ busy: true, error: null });
+    try {
+      const { error } = await supabase.auth.updateUser({ password });
+      if (error) throw error;
+      set({ needsPassword: false });
+      return true;
+    } catch (e) {
+      set({ error: message(e) });
+      return false;
+    } finally {
+      set({ busy: false });
+    }
+  },
+
+  skipPassword: () => set({ needsPassword: false, error: null }),
 
   submitProfile: async (handle, displayName) => {
     const { userId } = get();
@@ -215,6 +242,7 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
       email: null,
       profile: null,
       otpSent: false,
+      needsPassword: false,
     });
   },
 
