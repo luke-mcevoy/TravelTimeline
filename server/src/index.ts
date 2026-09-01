@@ -3,7 +3,6 @@ import cors from 'cors';
 import { readFileSync } from 'fs';
 import { join } from 'path';
 import { videoRouter } from './routes/video.js';
-import { applePhotosRouter } from './routes/applePhotos.js';
 import {
   PORT,
   CLIENT_DIST,
@@ -24,10 +23,25 @@ if (corsOrigin) {
   app.use(cors());
 }
 
-app.use(express.json({ limit: '50mb' }));
+// 50mb was for local photo-import payloads. On a 512 MB host a single large
+// body can OOM the process; cloud traffic doesn't need that headroom.
+app.use(express.json({ limit: process.env.NODE_ENV === 'production' ? '1mb' : '50mb' }));
 
 app.use('/api', videoRouter);
-app.use('/api', applePhotosRouter);
+
+// Apple Photos + the 46 MB country-border GeoJSON only exist to serve a Mac
+// library. Loading them on Linux (Render) is what blew the free-plan RAM cap.
+if (process.platform === 'darwin') {
+  const { applePhotosRouter } = await import('./routes/applePhotos.js');
+  app.use('/api', applePhotosRouter);
+} else {
+  app.get('/api/apple-photos/status', (_req, res) => {
+    res.json({
+      accessible: false,
+      error: 'Apple Photos is only available on macOS.',
+    });
+  });
+}
 
 app.get('/health', (_req, res) => {
   res.json({ status: 'ok' });

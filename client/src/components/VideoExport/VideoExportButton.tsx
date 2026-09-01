@@ -16,10 +16,11 @@ export function VideoExportButton() {
 
   const destinations = getSortedDestinations();
   const canExport = destinations.length >= 2;
+  const serverVideo = typeof window !== 'undefined' && window.__TT_CONFIG__?.serverVideo !== false;
 
-  // Video export depends on the Mac server (Puppeteer + FFmpeg); on the native
-  // build it's deferred until an on-device AVFoundation exporter exists.
-  if (isNativePlatform) return null;
+  // 1080p export is a Mac/Puppeteer pipeline. Native iOS uses Share Reel;
+  // hosted Render disables this endpoint so Chromium can't OOM the free dyno.
+  if (isNativePlatform || !serverVideo) return null;
 
   const handleExport = async () => {
     if (!canExport) return;

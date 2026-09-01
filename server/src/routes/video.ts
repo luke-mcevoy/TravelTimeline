@@ -1,16 +1,22 @@
 import { Router, type Request, type Response } from 'express';
 import { randomUUID } from 'crypto';
-import { renderVideo, type RenderOptions } from '../services/renderer.js';
-import { renderClientUrl } from '../config.js';
+import { renderClientUrl, serverVideoEnabled } from '../config.js';
+import type { RenderOptions } from '../services/renderer.js';
 
 export const videoRouter = Router();
 
-// Rendering spawns a full Chrome + FFmpeg pipeline; cap concurrency so a
-// handful of simultaneous requests can't exhaust the host.
-const MAX_CONCURRENT_RENDERS = Number(process.env.MAX_CONCURRENT_RENDERS) || 2;
+const MAX_CONCURRENT_RENDERS = Number(process.env.MAX_CONCURRENT_RENDERS) || 1;
 let activeRenders = 0;
 
+const UNAVAILABLE =
+  '1080p server export needs a Mac (or a larger host). Use Share Reel — that records in the browser.';
+
 videoRouter.post('/render-video', async (req: Request, res: Response) => {
+  if (!serverVideoEnabled()) {
+    res.status(503).json({ error: UNAVAILABLE });
+    return;
+  }
+
   if (activeRenders >= MAX_CONCURRENT_RENDERS) {
     res.status(429).json({ error: 'Too many renders in progress. Try again in a minute.' });
     return;
@@ -44,6 +50,7 @@ videoRouter.post('/render-video', async (req: Request, res: Response) => {
 
     sendProgress(0);
 
+    const { renderVideo } = await import('../services/renderer.js');
     const videoBuffer = await renderVideo(options, sendProgress);
 
     // The client downloads the file in a second request, claimed by a
@@ -91,10 +98,7 @@ videoRouter.get('/download-video', (req: Request, res: Response) => {
   videoCache.delete(token);
 });
 
-// In-memory cache of rendered videos awaiting download. Entries are
-// single-use, expire after 5 minutes, and the cache is bounded so queued
-// videos can't exhaust memory.
-const MAX_CACHED_VIDEOS = 5;
+const MAX_CACHED_VIDEOS = 1;
 const videoCache = new Map<string, { buffer: Buffer; createdAt: number }>();
 
 function storeVideo(token: string, buffer: Buffer) {

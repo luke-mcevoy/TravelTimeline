@@ -1,5 +1,27 @@
+import { createRequire } from 'module';
 import bplist from 'bplist-parser';
-import coordinateToCountry from 'coordinate_to_country';
+
+// Lazy: `coordinate_to_country` pulls in a 46 MB maritime-borders GeoJSON.
+// Parsed, that is hundreds of MB — enough to OOM a 512 MB cloud instance if
+// it loads at boot. Only require it the first time a Mac photo import needs
+// the offline fallback.
+const require = createRequire(import.meta.url);
+type CountryLookup = (
+  lat: number,
+  lng: number,
+  options?: { format?: 'alpha2' | 'alpha3' | 'numeric' }
+) => string[];
+let countryLookup: CountryLookup | null = null;
+function coordinateToCountry(
+  lat: number,
+  lng: number,
+  options?: { format?: 'alpha2' | 'alpha3' | 'numeric' }
+): string[] {
+  if (!countryLookup) {
+    countryLookup = require('coordinate_to_country') as CountryLookup;
+  }
+  return countryLookup(lat, lng, options);
+}
 
 /**
  * Resolves the country a photo was taken in, as accurately as Apple Photos

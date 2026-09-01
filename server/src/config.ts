@@ -31,6 +31,20 @@ export function renderClientUrl(): string {
 }
 
 /**
+ * Server-side 1080p export launches Chromium + FFmpeg. That fits a Mac, not a
+ * 512 MB Render free instance — one render OOMs the whole web process.
+ *
+ * Disabled automatically on Render unless ENABLE_SERVER_RENDER=1. Override off
+ * anywhere with DISABLE_SERVER_RENDER=1.
+ */
+export function serverVideoEnabled(): boolean {
+  if (process.env.DISABLE_SERVER_RENDER === '1') return false;
+  if (process.env.ENABLE_SERVER_RENDER === '1') return true;
+  if (process.env.RENDER === 'true') return false;
+  return true;
+}
+
+/**
  * Public client config injected into index.html at serve time. Lets a hosted
  * deploy enable the Supabase social layer via runtime env vars (no rebuild).
  * The anon key is designed to be public — RLS is the real access control.
@@ -38,10 +52,12 @@ export function renderClientUrl(): string {
 export function publicClientConfig(): {
   supabaseUrl: string;
   supabaseAnonKey: string;
+  serverVideo: boolean;
 } {
   return {
     supabaseUrl: process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '',
     supabaseAnonKey:
       process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || '',
+    serverVideo: serverVideoEnabled(),
   };
 }

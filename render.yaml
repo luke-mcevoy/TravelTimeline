@@ -4,16 +4,15 @@ services:
   - type: web
     name: travel-timeline
     runtime: docker
-    # Free tier: 512 MB RAM, spins down when idle. Core app runs fine; the
-    # server-side video exporter (Chromium) may need `starter` to avoid OOM.
+    # Free tier: 512 MB RAM, spins down when idle. Keep Chromium/video off
+    # (serverVideoEnabled() is false when RENDER=true) or the process OOMs.
     plan: free
     healthCheckPath: /health
     envVars:
       - key: NODE_ENV
         value: production
-      # Headless cloud hosts have no GPU; force the SwiftShader WebGL path.
-      - key: RENDER_FORCE_SOFTWARE
-        value: "1"
+      - key: NODE_OPTIONS
+        value: --max-old-space-size=256
       # Social layer — set these in the Render dashboard (runtime, no rebuild).
       # Values live in client/.env.local; never commit the anon key to git.
       - key: SUPABASE_URL

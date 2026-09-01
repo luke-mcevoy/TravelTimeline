@@ -37,8 +37,8 @@ docker build -t travel-timeline .
 docker run -p 3001:3001 travel-timeline
 ```
 
-The image includes Chromium (for the video exporter) and sets
-`RENDER_FORCE_SOFTWARE=1` since containers have no GPU. Enable social at
+The image is a slim Node runtime (no Chromium). Reels record in the
+browser; 1080p server export stays on a Mac. Enable social at
 **runtime** (no rebuild) by passing the same keys you keep in
 `client/.env.local`:
 
@@ -78,8 +78,9 @@ only contract is: run the container, route traffic to `PORT`.
 | `CORS_ORIGIN` | *(same-origin only)* | Comma-separated origins, only needed if the client is hosted elsewhere |
 | `CLIENT_DIST` | `<repo>/client/dist` | Override where the client build lives |
 | `RENDER_CLIENT_URL` | self (`http://localhost:PORT/render`) | Page Puppeteer captures for video export |
-| `RENDER_FORCE_SOFTWARE` | — | `1` forces software WebGL (headless hosts without GPU) |
-| `MAX_CONCURRENT_RENDERS` | `2` | Cap on simultaneous video renders |
+| `DISABLE_SERVER_RENDER` | — | `1` disables Chromium 1080p export |
+| `ENABLE_SERVER_RENDER` | — | `1` forces it on (even on Render — will OOM the free plan) |
+| `MAX_CONCURRENT_RENDERS` | `1` | Cap on simultaneous video renders |
 | `PUPPETEER_EXECUTABLE_PATH` | auto-detected | Chrome/Chromium binary for video export |
 | `FFMPEG_PATH` | bundled `ffmpeg-static` | FFmpeg override |
 | `SUPABASE_URL` | — | Enables social (accounts, friends, leaderboards) |
@@ -102,8 +103,8 @@ Supabase setup (schema, auth providers) is documented in
 - Rendered videos are claimed with a **single-use random token** (not IP).
 - The photo thumbnail endpoint resolves paths and rejects anything outside
   the Photos originals directory.
-- Video rendering is capped at `MAX_CONCURRENT_RENDERS` with a bounded
-  in-memory download cache (5 entries, 5-minute TTL).
+- Video rendering is off on Render (free 512 MB cannot run Chromium). Locally
+  it is capped at `MAX_CONCURRENT_RENDERS` with a single in-memory download.
 - There is **no authentication on the API itself**. The Apple Photos
   endpoints only ever expose data on a Mac where the server has Full Disk
   Access — do not run this on a shared/public Mac. Social auth is enforced
