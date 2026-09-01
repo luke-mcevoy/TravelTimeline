@@ -11,10 +11,6 @@ interface UiStore {
   showCityLabel: boolean;
   setShowCityLabel: (v: boolean) => void;
 
-  /** Secret easter egg: turn the Moon into a giant red Skittle. */
-  skittleMode: boolean;
-  toggleSkittleMode: () => void;
-
   /** True while the reel recorder is driving the camera. Keeps the flight arcs
    *  pinned bright (like playback) so the route is always visible in the video. */
   cinematic: boolean;
@@ -28,9 +24,6 @@ export const useUiStore = create<UiStore>((set) => ({
 
   showCityLabel: true,
   setShowCityLabel: (v) => set({ showCityLabel: v }),
-
-  skittleMode: false,
-  toggleSkittleMode: () => set((s) => ({ skittleMode: !s.skittleMode })),
 
   cinematic: false,
   setCinematic: (v) => set({ cinematic: v }),

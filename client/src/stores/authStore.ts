@@ -21,6 +21,7 @@ interface AuthStore {
   submitProfile: (handle: string, displayName: string) => Promise<void>;
   reloadProfile: () => Promise<void>;
   signOut: () => Promise<void>;
+  resetOtp: () => void;
   clearError: () => void;
 }
 
@@ -154,6 +155,8 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
     if (supabase) await supabase.auth.signOut();
     set({ status: 'signedOut', userId: null, email: null, profile: null, otpSent: false });
   },
+
+  resetOtp: () => set({ otpSent: false, error: null }),
 
   clearError: () => set({ error: null }),
 }));

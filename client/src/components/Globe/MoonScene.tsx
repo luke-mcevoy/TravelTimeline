@@ -2,7 +2,6 @@ import { useEffect, useMemo } from 'react';
 import * as THREE from 'three';
 import { useGlobeStore } from '@/stores/globeStore';
 import { useTripStore } from '@/stores/tripStore';
-import { useUiStore } from '@/stores/uiStore';
 import { totalDistance } from '@/utils/animation';
 import { spaceFactor } from '@/utils/spaceView';
 
@@ -133,46 +132,21 @@ function makeMoonTextures(): { map: THREE.CanvasTexture; bump: THREE.CanvasTextu
   return { map, bump: bumpTex };
 }
 
-/** The classic white Skittle "S", drawn on a transparent canvas for a sprite. */
-function makeSkittleLogo(): THREE.CanvasTexture {
-  const S = 256;
-  const c = document.createElement('canvas');
-  c.width = S;
-  c.height = S;
-  const x = c.getContext('2d')!;
-  x.clearRect(0, 0, S, S);
-  x.fillStyle = '#ffffff';
-  x.font = 'italic 900 190px Georgia, "Times New Roman", serif';
-  x.textAlign = 'center';
-  x.textBaseline = 'middle';
-  x.shadowColor = 'rgba(110, 0, 12, 0.45)';
-  x.shadowBlur = 10;
-  x.shadowOffsetY = 3;
-  x.fillText('S', S / 2, S / 2 + 6);
-  const t = new THREE.CanvasTexture(c);
-  t.colorSpace = THREE.SRGBColorSpace;
-  return t;
-}
-
 export function MoonScene() {
   const globe = useGlobeStore((s) => s.globeInstance);
   const trips = useTripStore((s) => s.trips);
   const getSorted = useTripStore((s) => s.getSortedDestinations);
-  const skittleMode = useUiStore((s) => s.skittleMode);
 
   const km = totalDistance(getSorted());
   const fraction = Math.max(0, Math.min(1, km / MOON_DISTANCE_KM));
 
-  // Build the (expensive) Moon surface + Skittle logo once.
   const moonTex = useMemo(() => makeMoonTextures(), []);
-  const skittleLogo = useMemo(() => makeSkittleLogo(), []);
   useEffect(
     () => () => {
       moonTex.map.dispose();
       moonTex.bump.dispose();
-      skittleLogo.dispose();
     },
-    [moonTex, skittleLogo]
+    [moonTex]
   );
 
   useEffect(() => {
@@ -188,58 +162,25 @@ export function MoonScene() {
 
     // ── Moon body (always visible) ──
     const moonCenter = MOON_DIR.clone().multiplyScalar(MOON_CENTER_DIST);
-    const moonMat = skittleMode
-      ? new THREE.MeshPhongMaterial({
-          // Glossy red candy shell.
-          color: 0xd11a2a,
-          emissive: 0x2a0206,
-          shininess: 120,
-          specular: 0xffd6d6,
-        })
-      : new THREE.MeshPhongMaterial({
-          map: moonTex.map,
-          bumpMap: moonTex.bump,
-          bumpScale: 0.9,
-          color: 0xffffff,
-          emissive: 0x05070c,
-          shininess: 1.5,
-          specular: 0x0c0f15,
-        });
+    const moonMat = new THREE.MeshPhongMaterial({
+      map: moonTex.map,
+      bumpMap: moonTex.bump,
+      bumpScale: 0.9,
+      color: 0xffffff,
+      emissive: 0x05070c,
+      shininess: 1.5,
+      specular: 0x0c0f15,
+    });
     const moon = new THREE.Mesh(new THREE.SphereGeometry(MOON_RADIUS, 96, 96), moonMat);
     moon.position.copy(moonCenter);
-    if (skittleMode) {
-      // Skittles are a flattened lentil/lens. Squash one axis; the tick orients
-      // that flat face toward the camera so we always see the broad candy side.
-      moon.scale.set(1, 1, 0.6);
-    } else {
-      // Turn an interesting, maria-rich hemisphere toward the typical viewpoint.
-      moon.rotation.y = -1.1;
-    }
+    // Turn an interesting, maria-rich hemisphere toward the typical viewpoint.
+    moon.rotation.y = -1.1;
     group.add(moon);
 
-    // The white "S" — a billboarded sprite that always faces the viewer, parked
-    // just in front of the candy's near face (skittle mode only).
-    let logo: THREE.Sprite | null = null;
-    let logoMat: THREE.SpriteMaterial | null = null;
-    if (skittleMode) {
-      logoMat = new THREE.SpriteMaterial({
-        map: skittleLogo,
-        transparent: true,
-        depthTest: false,
-        depthWrite: false,
-      });
-      logo = new THREE.Sprite(logoMat);
-      logo.scale.set(MOON_RADIUS * 1.15, MOON_RADIUS * 1.15, 1);
-      logo.renderOrder = 10;
-      group.add(logo);
-    }
-
-    // Soft outer halo so the body reads gently against the stars (reddened in
-    // candy mode so the Skittle gets a sweet glow).
     const haloMat = new THREE.MeshBasicMaterial({
-      color: skittleMode ? 0xff5a6a : 0xbfd2e6,
+      color: 0xbfd2e6,
       transparent: true,
-      opacity: skittleMode ? 0.16 : 0.1,
+      opacity: 0.1,
       side: THREE.BackSide,
       blending: THREE.AdditiveBlending,
       depthWrite: false,
@@ -298,7 +239,6 @@ export function MoonScene() {
     let rafId = 0;
     let disposed = false;
     let lastS = -1;
-    const camDir = new THREE.Vector3();
     const tick = () => {
       if (disposed) return;
       const s = spaceFactor(camera.position.length());
@@ -313,16 +253,6 @@ export function MoonScene() {
         fullLine.visible = beamVisible;
         node.visible = beamVisible;
         if (beam) beam.visible = beamVisible;
-      }
-
-      // Keep the Skittle's flat face — and its "S" — pointed at the viewer no
-      // matter how the globe is rotated or zoomed.
-      if (skittleMode) {
-        moon.lookAt(camera.position); // squashed local-Z faces the camera
-        camDir.copy(camera.position).sub(moonCenter).normalize();
-        if (logo) {
-          logo.position.copy(moonCenter).addScaledVector(camDir, MOON_RADIUS * 0.62);
-        }
       }
       rafId = requestAnimationFrame(tick);
     };
@@ -339,7 +269,7 @@ export function MoonScene() {
         if (mat) mat.dispose();
       });
     };
-  }, [globe, fraction, trips, moonTex, skittleLogo, skittleMode]);
+  }, [globe, fraction, trips, moonTex]);
 
   return null;
 }

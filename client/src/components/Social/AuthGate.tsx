@@ -17,6 +17,7 @@ export function AuthGate() {
   const signInApple = useAuthStore((s) => s.signInApple);
   const sendEmailOtp = useAuthStore((s) => s.sendEmailOtp);
   const verifyEmailOtp = useAuthStore((s) => s.verifyEmailOtp);
+  const resetOtp = useAuthStore((s) => s.resetOtp);
   const submitProfile = useAuthStore((s) => s.submitProfile);
 
   const [email, setEmail] = useState('');
@@ -133,6 +134,9 @@ export function AuthGate() {
               onClick={() => verifyEmailOtp(email, code)}
             >
               {busy ? <Loader2 className={styles.spinnerSm} /> : 'Verify'}
+            </button>
+            <button className={styles.ghost} type="button" onClick={resetOtp}>
+              Use a different email
             </button>
           </div>
         )}

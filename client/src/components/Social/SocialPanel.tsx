@@ -11,6 +11,8 @@ import {
   Loader2,
   Clock,
   Trash2,
+  Copy,
+  CheckCheck,
 } from 'lucide-react';
 import { useAuthStore } from '@/stores/authStore';
 import { useTripStore } from '@/stores/tripStore';
@@ -49,6 +51,9 @@ export function SocialPanel() {
   const [results, setResults] = useState<Profile[]>([]);
   const [edges, setEdges] = useState<FriendEdge[]>([]);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
+  const [searching, setSearching] = useState(false);
 
   // Leaderboard
   const [scope, setScope] = useState<'global' | 'friends'>('global');
@@ -66,8 +71,8 @@ export function SocialPanel() {
   }, [userId]);
 
   useEffect(() => {
-    if (open && tab === 'friends') refreshFriends();
-  }, [open, tab, refreshFriends]);
+    if (open) refreshFriends();
+  }, [open, refreshFriends]);
 
   useEffect(() => {
     if (!open || tab !== 'leaderboard' || !userId) return;
@@ -86,12 +91,15 @@ export function SocialPanel() {
   useEffect(() => {
     if (!userId || query.trim().length < 2) {
       setResults([]);
+      setSearching(false);
       return;
     }
+    setSearching(true);
     const t = window.setTimeout(() => {
       searchProfiles(query, userId)
         .then(setResults)
-        .catch(() => setResults([]));
+        .catch(() => setResults([]))
+        .finally(() => setSearching(false));
     }, 300);
     return () => window.clearTimeout(t);
   }, [query, userId]);
@@ -132,14 +140,29 @@ export function SocialPanel() {
     }
   };
 
+  const copyHandle = async () => {
+    if (!profile?.handle) return;
+    try {
+      await navigator.clipboard.writeText(`@${profile.handle}`);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1600);
+    } catch {
+      /* ignore */
+    }
+  };
+
   const viewGlobe = async (p: Profile) => {
+    setNotice(null);
     try {
       const places = await getPlacesFor(p.id);
-      if (places.length === 0) return;
+      if (places.length === 0) {
+        setNotice(`@${p.handle} hasn't shared any places yet.`);
+        return;
+      }
       viewProfile({ handle: p.handle, displayName: p.display_name }, placesToViewerTrips(places));
       setOpen(false);
     } catch {
-      /* RLS will block non-friends; ignore */
+      setNotice(`Couldn't load @${p.handle}'s map — they need to accept your request first.`);
     }
   };
 
@@ -158,7 +181,15 @@ export function SocialPanel() {
           <div className={styles.panel} onClick={(e) => e.stopPropagation()}>
             <header className={styles.head}>
               <div className={styles.me}>
-                <span className={styles.handle}>@{profile?.handle ?? '…'}</span>
+                <button
+                  className={styles.handleBtn}
+                  onClick={copyHandle}
+                  title="Copy handle so friends can find you"
+                  type="button"
+                >
+                  <span className={styles.handle}>@{profile?.handle ?? '…'}</span>
+                  {copied ? <CheckCheck size={13} /> : <Copy size={13} />}
+                </button>
                 <span className={styles.meStats}>
                   {profile?.countries_count ?? 0} countries · {fmtKm(profile?.distance_km ?? 0)}
                 </span>
@@ -190,6 +221,7 @@ export function SocialPanel() {
               className={styles.body}
               onWheel={(e) => e.stopPropagation()}
             >
+              {notice && <p className={styles.notice}>{notice}</p>}
               {tab === 'friends' ? (
                 <>
                   <div className={styles.searchRow}>
@@ -203,6 +235,13 @@ export function SocialPanel() {
                       autoCorrect="off"
                     />
                   </div>
+                  <p className={styles.hint}>
+                    Search their @handle, tap Add, then they Accept. After that, View opens their globe.
+                  </p>
+
+                  {query.trim().length >= 2 && !searching && results.length === 0 && (
+                    <p className={styles.empty}>No one with that handle.</p>
+                  )}
 
                   {results.length > 0 && (
                     <Section title="Results">
@@ -310,7 +349,6 @@ export function SocialPanel() {
                     <ol className={styles.board}>
                       {board.map((p, i) => {
                         const isMe = p.id === userId;
-                        const isFriend = stateFor(p.id) === 'accepted';
                         return (
                           <li key={p.id} className={isMe ? styles.boardMe : styles.boardRow}>
                             <span className={styles.rank}>{i + 1}</span>
@@ -321,7 +359,7 @@ export function SocialPanel() {
                             <span className={styles.boardVal}>
                               {metric === 'countries' ? `${p.countries_count}` : fmtKm(p.distance_km)}
                             </span>
-                            {(isMe || isFriend) && (
+                            {isMe ? (
                               <button
                                 className={styles.viewMini}
                                 onClick={() => viewGlobe(p)}
@@ -329,6 +367,14 @@ export function SocialPanel() {
                               >
                                 <Globe2 size={14} />
                               </button>
+                            ) : (
+                              <FriendAction
+                                state={stateFor(p.id)}
+                                busy={busyId === p.id}
+                                onAdd={() => add(p.id)}
+                                onAccept={() => accept(p.id)}
+                                onView={() => viewGlobe(p)}
+                              />
                             )}
                           </li>
                         );
