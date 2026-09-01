@@ -28,11 +28,17 @@ export function ApplePhotosImport() {
   const [progressMsg, setProgressMsg] = useState('');
   const [progressPct, setProgressPct] = useState(0);
   const [error, setError] = useState('');
+  const [available, setAvailable] = useState(isNativePlatform);
 
   const setTrips = useTripStore((s) => s.setTrips);
   const setAnimation = useTripStore((s) => s.setAnimation);
   const existingTrips = useTripStore((s) => s.trips);
   const autoOpenedRef = useRef(false);
+
+  useEffect(() => {
+    if (isNativePlatform) return;
+    checkPhotoAccess().then((access) => setAvailable(access.accessible));
+  }, []);
 
   const checkAccess = useCallback(async (): Promise<boolean> => {
     setState('checking');
@@ -154,6 +160,8 @@ export function ApplePhotosImport() {
     setState('idle');
     setError('');
   };
+
+  if (!available) return null;
 
   return (
     <>

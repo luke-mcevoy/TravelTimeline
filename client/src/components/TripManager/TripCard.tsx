@@ -1,9 +1,11 @@
 import { useState, useRef } from 'react';
-import { ChevronDown, ChevronRight, Trash2, Pencil, Check, X } from 'lucide-react';
+import { ChevronDown, ChevronRight, Trash2, Pencil, Check, X, Plus } from 'lucide-react';
 import clsx from 'clsx';
 import type { Trip } from '@/types';
 import { useTripStore } from '@/stores/tripStore';
 import { DestinationItem } from './DestinationItem';
+import { CitySearch } from './CitySearch';
+import type { CityHit } from '@/services/cityDb';
 import styles from './TripCard.module.css';
 
 interface TripCardProps {
@@ -15,12 +17,14 @@ export function TripCard({ trip, isSelected }: TripCardProps) {
   const [isExpanded, setIsExpanded] = useState(isSelected);
   const [isEditing, setIsEditing] = useState(false);
   const [editName, setEditName] = useState(trip.name);
+  const [adding, setAdding] = useState(false);
   const dragIndexRef = useRef<number | null>(null);
 
   const {
     selectTrip,
     updateTrip,
     deleteTrip,
+    addDestination,
     updateDestination,
     removeDestination,
     reorderDestinations,
@@ -50,6 +54,20 @@ export function TripCard({ trip, isSelected }: TripCardProps) {
 
   const handleDragEnd = () => {
     dragIndexRef.current = null;
+  };
+
+  const handleAddCity = (city: CityHit) => {
+    const today = new Date().toISOString().slice(0, 10);
+    addDestination(trip.id, {
+      city: city.name,
+      country: city.country || city.countryCode,
+      countryCode: city.countryCode,
+      lat: city.lat,
+      lng: city.lng,
+      arrivalDate: today,
+      departureDate: today,
+    });
+    setAdding(false);
   };
 
   return (
@@ -116,6 +134,19 @@ export function TripCard({ trip, isSelected }: TripCardProps) {
               onDragEnd={handleDragEnd}
             />
           ))}
+          {adding ? (
+            <div className={styles.addDestWrapper}>
+              <CitySearch onSelect={handleAddCity} autoFocus placeholder="Add a city…" />
+              <button onClick={() => setAdding(false)} className={styles.addDestCancel}>
+                Cancel
+              </button>
+            </div>
+          ) : (
+            <button onClick={() => setAdding(true)} className={styles.addDestButton}>
+              <Plus className={styles.addDestIcon} />
+              Add city
+            </button>
+          )}
         </div>
       )}
     </div>

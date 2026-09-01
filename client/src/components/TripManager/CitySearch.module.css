@@ -1,0 +1,70 @@
+@reference "tailwindcss";
+
+.wrap {
+  @apply relative;
+}
+
+.inputRow {
+  @apply relative;
+}
+
+.input {
+  @apply w-full px-3 py-2 text-sm text-white;
+  font-family: var(--font-mono);
+  background: var(--color-void-2);
+  border: 1px solid var(--color-line);
+  outline: none;
+}
+
+.input::placeholder {
+  color: var(--color-text-faint);
+}
+
+.input:focus {
+  border-color: var(--color-cyan);
+  box-shadow: 0 0 0 1px rgba(56, 225, 255, 0.3);
+}
+
+.spinner {
+  @apply absolute right-2 top-1/2 h-3.5 w-3.5;
+  transform: translateY(-50%);
+  color: var(--color-cyan);
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: translateY(-50%) rotate(360deg);
+  }
+}
+
+.list {
+  @apply mt-1 max-h-48 overflow-y-auto;
+  border: 1px solid var(--color-line);
+  background: rgba(8, 13, 21, 0.98);
+}
+
+.hit {
+  @apply flex items-center gap-2 w-full px-3 py-2 text-left;
+  transition: background 0.12s;
+}
+
+.hit:hover {
+  background: rgba(56, 225, 255, 0.08);
+}
+
+.pin {
+  @apply h-3.5 w-3.5 shrink-0;
+  color: var(--color-cyan);
+}
+
+.city {
+  font-family: var(--font-mono);
+  @apply text-xs text-white;
+}
+
+.country {
+  font-family: var(--font-mono);
+  @apply text-xs ml-auto;
+  color: var(--color-text-faint);
+}

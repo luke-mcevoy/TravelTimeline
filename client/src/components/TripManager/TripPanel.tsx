@@ -8,6 +8,7 @@ import {
   Globe2,
   Trash2,
   MapPinned,
+  Plus,
 } from 'lucide-react';
 import { useTripStore } from '@/stores/tripStore';
 import { exportTripsToJson, importTripsFromJson } from '@/utils/storage';
@@ -20,12 +21,15 @@ export function TripPanel() {
   // On phones the panel covers the whole globe, so start it collapsed; on the
   // web it sits as a sidebar alongside the globe, so start it open.
   const [isOpen, setIsOpen] = useState(!isNativePlatform);
+  const [creating, setCreating] = useState(false);
+  const [newName, setNewName] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const trips = useTripStore((s) => s.trips);
   const selectedTripId = useTripStore((s) => s.selectedTripId);
   const setTrips = useTripStore((s) => s.setTrips);
   const selectTrip = useTripStore((s) => s.selectTrip);
+  const addTrip = useTripStore((s) => s.addTrip);
   const resetAnimation = useTripStore((s) => s.resetAnimation);
 
   const handleClearAll = async () => {
@@ -68,6 +72,13 @@ export function TripPanel() {
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
+  const handleCreate = () => {
+    const name = newName.trim() || 'Untitled trip';
+    addTrip(name);
+    setNewName('');
+    setCreating(false);
+  };
+
   if (!isOpen) {
     return (
       <button
@@ -91,6 +102,14 @@ export function TripPanel() {
       </div>
 
       <div className={styles.actions}>
+        <button
+          onClick={() => setCreating(true)}
+          className={styles.newTripButton}
+          title="New trip"
+        >
+          <Plus className={styles.newTripButtonIcon} />
+          New Trip
+        </button>
         <ApplePhotosImport />
         <div className={styles.actionsSpacer} />
         <button
@@ -149,12 +168,32 @@ export function TripPanel() {
       )}
 
       <div className={styles.tripList}>
-        {trips.length === 0 ? (
+        {creating && (
+          <div className={styles.createForm}>
+            <input
+              className={styles.createInput}
+              value={newName}
+              onChange={(e) => setNewName(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && handleCreate()}
+              placeholder="Trip name (e.g. Japan 2024)"
+              autoFocus
+            />
+            <div className={styles.createActions}>
+              <button onClick={handleCreate} className={styles.createSubmit}>
+                Create
+              </button>
+              <button onClick={() => setCreating(false)} className={styles.createCancel}>
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
+        {trips.length === 0 && !creating ? (
           <div className={styles.emptyState}>
             <Globe2 className={styles.emptyIcon} />
             <p className={styles.emptyTitle}>No trips yet</p>
             <p className={styles.emptySubtitle}>
-              Connect Apple Photos to build your travel story automatically
+              Tap New Trip, then search for cities to drop them on the globe.
             </p>
           </div>
         ) : (

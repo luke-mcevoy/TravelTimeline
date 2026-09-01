@@ -16,7 +16,7 @@ export async function initCityDb(): Promise<void> {
   if (cities) return;
   if (!loading) {
     loading = (async () => {
-      const res = await fetch('geo/cities5000.json');
+      const res = await fetch('/geo/cities5000.json');
       if (!res.ok) throw new Error('Could not load cities dataset');
       cities = (await res.json()) as CityRow[];
     })();
@@ -65,4 +65,47 @@ export function nearestCity(lat: number, lng: number): NearestCity | null {
   if (km > MAX_KM) return null;
   const c = cities[bi];
   return { name: c[0], countryCode: c[3], km };
+}
+
+export interface CityHit {
+  name: string;
+  countryCode: string;
+  country: string;
+  lat: number;
+  lng: number;
+}
+
+const regionNames = new Intl.DisplayNames(['en'], { type: 'region' });
+
+function hitFromRow(c: CityRow): CityHit {
+  const countryCode = (c[3] || '').toUpperCase();
+  let country = '';
+  try {
+    country = countryCode ? regionNames.of(countryCode) ?? countryCode : '';
+  } catch {
+    country = countryCode;
+  }
+  return { name: c[0], countryCode, country, lat: c[1], lng: c[2] };
+}
+
+/**
+ * Typeahead over the bundled GeoNames table. Used by the web "add a city"
+ * flow so we never depend on Nominatim CORS from a hosted origin.
+ */
+export async function searchCitiesLocal(query: string, limit = 8): Promise<CityHit[]> {
+  await initCityDb();
+  if (!cities || query.trim().length < 2) return [];
+  const q = query.trim().toLowerCase();
+  const prefix: CityHit[] = [];
+  const rest: CityHit[] = [];
+  for (let i = 0; i < cities.length; i++) {
+    const name = cities[i][0].toLowerCase();
+    if (name.startsWith(q)) {
+      prefix.push(hitFromRow(cities[i]));
+      if (prefix.length >= limit) break;
+    } else if (rest.length < limit && name.includes(q)) {
+      rest.push(hitFromRow(cities[i]));
+    }
+  }
+  return [...prefix, ...rest].slice(0, limit);
 }
