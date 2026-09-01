@@ -1,21 +1,24 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
+import { Users } from 'lucide-react';
 import { socialEnabled } from '@/services/supabase';
 import { useAuthStore } from '@/stores/authStore';
 import { useTravelSync } from '@/hooks/useTravelSync';
 import { AuthGate } from './AuthGate';
 import { SocialPanel } from './SocialPanel';
 import { ViewerBanner } from './ViewerBanner';
+import panelStyles from './SocialPanel.module.css';
 
 /**
- * Top-level social layer. When the backend isn't configured it renders nothing
- * and the app stays a local-only globe. Otherwise it boots the session, gates
- * the app behind sign-in + handle, keeps travel synced, and mounts the friends
- * panel + viewer banner.
+ * Social layer. The globe is always usable; sign-in is only for friends/sync.
+ * A saved session restores silently. The email wall is opt-in (people button).
  */
 export function SocialRoot() {
   const status = useAuthStore((s) => s.status);
-  const offerPassword = useAuthStore((s) => s.offerPassword);
   const init = useAuthStore((s) => s.init);
+  const [signInOpen, setSignInOpen] = useState(false);
+  if (status === 'ready' && signInOpen) {
+    setSignInOpen(false);
+  }
 
   useEffect(() => {
     if (socialEnabled) init();
@@ -24,12 +27,29 @@ export function SocialRoot() {
   useTravelSync();
 
   if (!socialEnabled) return null;
-  if (status !== 'ready' || offerPassword) return <AuthGate />;
+  if (status === 'loading') return null;
+
+  const showAuth = status === 'needsProfile' || (signInOpen && status === 'signedOut');
 
   return (
     <>
-      <SocialPanel />
-      <ViewerBanner />
+      {status === 'ready' ? (
+        <>
+          <SocialPanel />
+          <ViewerBanner />
+        </>
+      ) : (
+        <button
+          className={panelStyles.trigger}
+          onClick={() => setSignInOpen(true)}
+          title="Sign in"
+        >
+          <Users className={panelStyles.triggerIcon} />
+        </button>
+      )}
+      {showAuth && (
+        <AuthGate onDismiss={status === 'needsProfile' ? undefined : () => setSignInOpen(false)} />
+      )}
     </>
   );
 }

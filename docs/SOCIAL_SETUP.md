@@ -7,8 +7,9 @@ keys — without them the app runs exactly as before (local single-user).
 ## What got built
 
 - **Backend:** Supabase (Postgres + Auth + Storage + Row-Level Security).
-- **Auth:** Sign in with Apple (native iOS) + email/password on web. A one-time
-  email code is a fallback for accounts that never set a password.
+- **Auth:** Optional. The globe works without an account. Sign in (Apple on
+  iOS, email/password on web) only for friends and cross-device sync. A session
+  stays in this browser until you sign out.
 - **Profiles:** public `@handle` + denormalized stats (countries, cities, distance).
 - **Friends:** mutual request/accept graph; search by handle.
 - **Leaderboards:** **Global** + **Friends**, ranked by **countries** or **distance**.
@@ -64,7 +65,8 @@ option (the Simulator can't do Sign in with Apple anyway).
 
 ## 5. Run it
 
-- First launch shows the sign-in gate → sign in → pick an `@handle`.
+- First launch is the globe. Sign in from the people icon (top-right) only if
+  you want friends or sync → pick an `@handle`.
 - Build your library as usual; your map auto-syncs.
 - Tap the **people icon** (top-right) for Friends + Leaderboards. Search a handle,
   send a request; once accepted, tap **View** to fly through their globe.

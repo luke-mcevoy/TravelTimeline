@@ -13,8 +13,6 @@ interface AuthStore {
   busy: boolean;
   error: string | null;
   otpSent: boolean;
-  /** After an OTP login, offer to set a password so the next visit is quieter. */
-  offerPassword: boolean;
 
   init: () => void;
   signInApple: () => Promise<void>;
@@ -22,8 +20,6 @@ interface AuthStore {
   signUpPassword: (email: string, password: string) => Promise<void>;
   sendEmailOtp: (email: string) => Promise<void>;
   verifyEmailOtp: (email: string, token: string) => Promise<void>;
-  setPassword: (password: string) => Promise<void>;
-  skipPassword: () => void;
   submitProfile: (handle: string, displayName: string) => Promise<void>;
   reloadProfile: () => Promise<void>;
   signOut: () => Promise<void>;
@@ -46,6 +42,8 @@ function authMessage(e: unknown): string {
   return m;
 }
 
+let authStarted = false;
+
 export const useAuthStore = create<AuthStore>((set, get) => ({
   status: socialEnabled ? 'loading' : 'signedOut',
   userId: null,
@@ -54,13 +52,10 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
   busy: false,
   error: null,
   otpSent: false,
-  offerPassword: false,
 
   init: () => {
-    if (!supabase) {
-      set({ status: 'signedOut' });
-      return;
-    }
+    if (!supabase || authStarted) return;
+    authStarted = true;
 
     const applySession = async (userId: string | null, email: string | null) => {
       if (!userId) {
@@ -81,7 +76,10 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
       applySession(s?.user.id ?? null, s?.user.email ?? null);
     });
 
-    supabase.auth.onAuthStateChange((_event, session) => {
+    // INITIAL_SESSION is handled by getSession above. Listening to it as well
+    // can flash signedOut and force another email login on every refresh.
+    supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'INITIAL_SESSION') return;
       applySession(session?.user.id ?? null, session?.user.email ?? null);
     });
   },
@@ -166,33 +164,13 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
         type: 'email',
       });
       if (error) throw error;
-      set({ otpSent: false, offerPassword: true });
+      set({ otpSent: false });
     } catch (e) {
       set({ error: message(e) });
     } finally {
       set({ busy: false });
     }
   },
-
-  setPassword: async (password) => {
-    if (!supabase) return;
-    if (password.length < 6) {
-      set({ error: 'Password must be at least 6 characters.' });
-      return;
-    }
-    set({ busy: true, error: null });
-    try {
-      const { error } = await supabase.auth.updateUser({ password });
-      if (error) throw error;
-      set({ offerPassword: false });
-    } catch (e) {
-      set({ error: message(e) });
-    } finally {
-      set({ busy: false });
-    }
-  },
-
-  skipPassword: () => set({ offerPassword: false, error: null }),
 
   submitProfile: async (handle, displayName) => {
     const { userId } = get();
@@ -237,7 +215,6 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
       email: null,
       profile: null,
       otpSent: false,
-      offerPassword: false,
     });
   },
 

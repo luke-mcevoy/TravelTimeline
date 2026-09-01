@@ -1,28 +1,25 @@
 import { useState } from 'react';
-import { Apple, Globe2, Loader2, Mail } from 'lucide-react';
+import { Apple, Globe2, Loader2, Mail, X } from 'lucide-react';
 import { useAuthStore } from '@/stores/authStore';
 import { isNativePlatform } from '@/services/photoSource';
 import styles from './AuthGate.module.css';
 
 /**
- * Full-screen gate shown until the user has a session AND a profile. Handles
- * Sign in with Apple (native), email + password on web, an OTP fallback for
- * accounts that never set a password, and picking a public @handle on first run.
+ * Sign-in card. The globe stays usable without an account; this overlay is
+ * opened from the people button. The only required step after auth is picking
+ * an @handle (needsProfile).
  */
-export function AuthGate() {
+export function AuthGate({ onDismiss }: { onDismiss?: () => void }) {
   const status = useAuthStore((s) => s.status);
   const busy = useAuthStore((s) => s.busy);
   const error = useAuthStore((s) => s.error);
   const otpSent = useAuthStore((s) => s.otpSent);
-  const offerPassword = useAuthStore((s) => s.offerPassword);
   const signInApple = useAuthStore((s) => s.signInApple);
   const signInPassword = useAuthStore((s) => s.signInPassword);
   const signUpPassword = useAuthStore((s) => s.signUpPassword);
   const sendEmailOtp = useAuthStore((s) => s.sendEmailOtp);
   const verifyEmailOtp = useAuthStore((s) => s.verifyEmailOtp);
   const resetOtp = useAuthStore((s) => s.resetOtp);
-  const setPassword = useAuthStore((s) => s.setPassword);
-  const skipPassword = useAuthStore((s) => s.skipPassword);
   const submitProfile = useAuthStore((s) => s.submitProfile);
 
   const [email, setEmail] = useState('');
@@ -32,50 +29,6 @@ export function AuthGate() {
   const [showEmail, setShowEmail] = useState(!isNativePlatform);
   const [handle, setHandle] = useState('');
   const [name, setName] = useState('');
-
-  if (status === 'loading') {
-    return (
-      <div className={styles.backdrop}>
-        <Loader2 className={styles.spinner} />
-      </div>
-    );
-  }
-
-  if (status === 'ready' && offerPassword) {
-    return (
-      <div className={styles.backdrop}>
-        <div className={styles.card}>
-          <Globe2 className={styles.hero} />
-          <h1 className={styles.title}>Skip the code next time</h1>
-          <p className={styles.sub}>
-            Set a password. This browser will stay signed in anyway — you only need
-            the password if you sign out.
-          </p>
-          <div className={styles.emailBlock}>
-            <input
-              className={styles.input}
-              value={password}
-              onChange={(e) => setPasswordValue(e.target.value)}
-              placeholder="New password (6+ characters)"
-              type="password"
-              autoComplete="new-password"
-            />
-            {error && <p className={styles.error}>{error}</p>}
-            <button
-              className={styles.primary}
-              disabled={busy || password.length < 6}
-              onClick={() => setPassword(password)}
-            >
-              {busy ? <Loader2 className={styles.spinnerSm} /> : 'Save password'}
-            </button>
-            <button className={styles.ghost} type="button" onClick={skipPassword}>
-              Not now
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
 
   if (status === 'needsProfile') {
     return (
@@ -119,14 +72,21 @@ export function AuthGate() {
   const emailReady = email.includes('@') && password.length >= 6;
 
   return (
-    <div className={styles.backdrop}>
+    <div
+      className={styles.backdrop}
+      onClick={onDismiss ? (e) => e.target === e.currentTarget && onDismiss() : undefined}
+    >
       <div className={styles.card}>
+        {onDismiss && (
+          <button className={styles.close} type="button" onClick={onDismiss} aria-label="Close">
+            <X size={18} />
+          </button>
+        )}
         <Globe2 className={styles.hero} />
-        <h1 className={styles.title}>TravelTimeline</h1>
+        <h1 className={styles.title}>Friends & sync</h1>
         <p className={styles.sub}>
-          The honest map of everywhere you've been — built straight from your camera
-          roll, not a curated highlight reel. See friends' travels and climb the
-          leaderboards.
+          Optional. Your globe works without an account. Sign in only if you want
+          friends to find you or to sync this map to your phone.
         </p>
 
         {isNativePlatform && (

@@ -12,6 +12,7 @@
 }
 
 .card {
+  position: relative;
   width: 100%;
   max-width: 360px;
   display: flex;
@@ -19,6 +20,21 @@
   align-items: center;
   gap: 12px;
   text-align: center;
+}
+.close {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(234, 246, 255, 0.7);
+  cursor: pointer;
 }
 
 .hero {
